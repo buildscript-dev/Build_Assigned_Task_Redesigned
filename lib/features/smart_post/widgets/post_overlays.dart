@@ -133,7 +133,9 @@ class PickCounter extends StatelessWidget {
   }
 }
 
-/// Redesigned indicator: active dot stretches into a glowing pill.
+/// Indicator dots. Every dot occupies a fixed, unchanging box — only fill
+/// color and an internal scale transform change with the active index, so
+/// this can never itself be a source of layout overflow.
 class PageDots extends StatelessWidget {
   const PageDots({super.key, required this.index, required this.total});
 
@@ -152,23 +154,31 @@ class PageDots extends StatelessWidget {
           for (var i = 0; i < total; i++)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 4),
-              child: AnimatedContainer(
-                duration: Motion.base,
-                curve: Motion.spring,
-                width: 9,
-                height: i == index ? 22 : 9,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(6),
-                  gradient: i == index ? AppColors.heroGradient : null,
-                  color: i == index ? null : Colors.white70,
-                  boxShadow: i == index
-                      ? [
-                          BoxShadow(
-                              color: AppColors.brandGreen
-                                  .withValues(alpha: .6),
-                              blurRadius: 8),
-                        ]
-                      : null,
+              child: SizedBox(
+                width: 14,
+                height: 14,
+                child: Center(
+                  child: AnimatedScale(
+                    scale: i == index ? 1.0 : 0.64,
+                    duration: Motion.base,
+                    curve: Motion.smooth,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: i == index ? AppColors.heroGradient : null,
+                        color: i == index ? null : Colors.white70,
+                        boxShadow: i == index
+                            ? [
+                                BoxShadow(
+                                    color: AppColors.brandGreen
+                                        .withValues(alpha: .6),
+                                    blurRadius: 8),
+                              ]
+                            : null,
+                      ),
+                      child: const SizedBox(width: 10, height: 10),
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -424,23 +434,31 @@ class _CaptionBlockState extends State<CaptionBlock>
                             fontWeight: FontWeight.w800)),
                   ),
                   const SizedBox(width: 8),
-                  const Text('CAPTION SUGGESTION',
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.5,
-                          shadows: overlayTextShadows)),
+                  Flexible(
+                    child: Text('CAPTION SUGGESTION',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.4,
+                            shadows: overlayTextShadows)),
+                  ),
                   const Spacer(),
                   const Icon(Icons.auto_fix_high_rounded,
                       color: AppColors.gold, size: 16),
                   const SizedBox(width: 5),
-                  const Text('Edit Caption',
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          shadows: overlayTextShadows)),
+                  Flexible(
+                    child: Text('Edit Caption',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w700,
+                            shadows: overlayTextShadows)),
+                  ),
                 ],
               ),
               const SizedBox(height: 8),

@@ -3,20 +3,30 @@ import 'package:flutter/services.dart';
 
 import '../../app/theme.dart';
 
-/// Edit Caption page (02 Quick share frames): X · title · Save.
-/// Designer notes honored: opens WITHOUT keyboard; tapping the caption
-/// focuses it and opens the keyboard; Save enables only once text changes.
-/// Save pops with the edited text; the feed stores it per post.
-class EditCaptionPage extends StatefulWidget {
-  const EditCaptionPage({super.key, required this.initialText});
+/// Opens the caption editor as a draggable-height bottom sheet. Height
+/// adapts to leave room for the keyboard so the header/Save button are
+/// never pushed off-screen, and the text area scrolls (no `expands: true`,
+/// which is the usual source of edit-field overflow).
+Future<String?> showEditCaptionSheet(
+    BuildContext context, String initialText) {
+  return showModalBottomSheet<String>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (_) => EditCaptionSheet(initialText: initialText),
+  );
+}
+
+class EditCaptionSheet extends StatefulWidget {
+  const EditCaptionSheet({super.key, required this.initialText});
 
   final String initialText;
 
   @override
-  State<EditCaptionPage> createState() => _EditCaptionPageState();
+  State<EditCaptionSheet> createState() => _EditCaptionSheetState();
 }
 
-class _EditCaptionPageState extends State<EditCaptionPage> {
+class _EditCaptionSheetState extends State<EditCaptionSheet> {
   late final TextEditingController _controller;
   late final String _original;
   bool _dirty = false;
@@ -40,84 +50,124 @@ class _EditCaptionPageState extends State<EditCaptionPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.close, color: AppColors.ink),
-                    onPressed: () => Navigator.of(context).pop(),
+    final media = MediaQuery.of(context);
+    final keyboard = media.viewInsets.bottom;
+    // Cap the sheet to whatever's left above the keyboard (plus a small
+    // margin) so the header always stays visible — never a fixed height
+    // that could overshoot the screen once the keyboard opens.
+    final maxHeight = media.size.height * 0.78;
+    final availableHeight = media.size.height - keyboard - media.padding.top - 24;
+    final height = availableHeight < maxHeight ? availableHeight : maxHeight;
+
+    return AnimatedPadding(
+      duration: Motion.fast,
+      curve: Motion.smooth,
+      padding: EdgeInsets.only(bottom: keyboard),
+      child: AnimatedContainer(
+        duration: Motion.fast,
+        curve: Motion.smooth,
+        height: height.clamp(280.0, maxHeight),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // drag handle
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                child: Container(
+                  width: 40,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: AppColors.greyMuted,
+                    borderRadius: BorderRadius.circular(3),
                   ),
-                  const Expanded(
-                    child: Text('Edit Caption',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.ink)),
-                  ),
-                  AnimatedScale(
-                    scale: _dirty ? 1.0 : 0.94,
-                    duration: Motion.base,
-                    curve: Motion.spring,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(24),
-                        gradient: _dirty ? AppColors.heroGradient : null,
-                        boxShadow: _dirty
-                            ? [
-                                BoxShadow(
-                                    color: AppColors.brandGreen
-                                        .withValues(alpha: .4),
-                                    blurRadius: 10)
-                              ]
-                            : null,
-                      ),
-                      child: FilledButton(
-                        onPressed: _dirty
-                            ? () {
-                                HapticFeedback.mediumImpact();
-                                Navigator.of(context).pop(_controller.text);
-                              }
-                            : null,
-                        style: FilledButton.styleFrom(
-                          backgroundColor: Colors.transparent,
-                          disabledBackgroundColor:
-                              AppColors.greyMuted.withValues(alpha: .5),
-                          disabledForegroundColor: AppColors.greyText,
-                          shadowColor: Colors.transparent,
-                          padding: const EdgeInsets.symmetric(horizontal: 22),
-                        ),
-                        child: const Text('Save',
-                            style: TextStyle(fontWeight: FontWeight.w700)),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const Divider(height: 1),
-            Expanded(
-              child: TextField(
-                controller: _controller,
-                maxLines: null,
-                expands: true,
-                // No autofocus: keyboard appears on caption tap (2nd click),
-                // matching the annotated Figma flow.
-                style: const TextStyle(
-                    fontSize: 15, height: 1.45, color: AppColors.ink),
-                decoration: const InputDecoration(
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.all(20),
                 ),
               ),
-            ),
-          ],
+              Padding(
+                padding: const EdgeInsets.fromLTRB(8, 0, 16, 6),
+                child: Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded,
+                          color: AppColors.ink),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                    const Expanded(
+                      child: Text('Edit Caption',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.ink)),
+                    ),
+                    AnimatedScale(
+                      scale: _dirty ? 1.0 : 0.94,
+                      duration: Motion.base,
+                      curve: Motion.spring,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(24),
+                          gradient: _dirty ? AppColors.heroGradient : null,
+                          boxShadow: _dirty
+                              ? [
+                                  BoxShadow(
+                                      color: AppColors.brandGreen
+                                          .withValues(alpha: .4),
+                                      blurRadius: 10)
+                                ]
+                              : null,
+                        ),
+                        child: FilledButton(
+                          onPressed: _dirty
+                              ? () {
+                                  HapticFeedback.mediumImpact();
+                                  Navigator.of(context)
+                                      .pop(_controller.text);
+                                }
+                              : null,
+                          style: FilledButton.styleFrom(
+                            backgroundColor: Colors.transparent,
+                            disabledBackgroundColor:
+                                AppColors.greyMuted.withValues(alpha: .5),
+                            disabledForegroundColor: AppColors.greyText,
+                            shadowColor: Colors.transparent,
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 20),
+                          ),
+                          child: const Text('Save',
+                              style: TextStyle(fontWeight: FontWeight.w700)),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(20),
+                  child: TextField(
+                    controller: _controller,
+                    maxLines: null,
+                    // No autofocus: keyboard appears on caption tap (2nd
+                    // click), matching the annotated Figma flow.
+                    style: const TextStyle(
+                        fontSize: 15, height: 1.45, color: AppColors.ink),
+                    decoration: const InputDecoration(
+                      border: InputBorder.none,
+                      isCollapsed: true,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

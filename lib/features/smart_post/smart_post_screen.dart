@@ -47,27 +47,7 @@ class _SmartPostScreenState extends State<SmartPostScreen> {
   Future<void> _editCaption() async {
     HapticFeedback.lightImpact();
     final page = _page;
-    final edited = await Navigator.of(context).push<String>(
-      PageRouteBuilder(
-        pageBuilder: (_, _, _) =>
-            EditCaptionPage(initialText: captionTextFor(page)),
-        transitionDuration: const Duration(milliseconds: 320),
-        reverseTransitionDuration: const Duration(milliseconds: 260),
-        transitionsBuilder: (_, anim, _, child) {
-          final curved = CurvedAnimation(
-            parent: anim,
-            curve: Curves.easeOutCubic,
-          );
-          return SlideTransition(
-            position: Tween(
-              begin: const Offset(0, 1),
-              end: Offset.zero,
-            ).animate(curved),
-            child: FadeTransition(opacity: curved, child: child),
-          );
-        },
-      ),
-    );
+    final edited = await showEditCaptionSheet(context, captionTextFor(page));
     if (edited != null && mounted) {
       setState(() => editedCaptions[page] = edited);
       ScaffoldMessenger.of(
@@ -209,19 +189,31 @@ class _PostMediaState extends State<_PostMedia> {
           fit: BoxFit.cover,
           alignment: Alignment.bottomCenter,
         ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 92),
+        // Header pinned to the top — independent of the bottom cluster, so
+        // neither can ever force the other into a RenderFlex overflow.
+        Positioned(
+          left: 16,
+          right: 16,
+          top: 14,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Expanded(child: PostHeaderRow()),
+              PickCounter(index: widget.index, total: widget.total),
+            ],
+          ),
+        ),
+        // Bottom cluster sized to its own content (mainAxisSize.min) and
+        // anchored to the bottom edge — it can grow upward but can never
+        // overflow a fixed-height parent the way a Spacer-based Column could.
+        Positioned(
+          left: 16,
+          right: 16,
+          bottom: 92,
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Expanded(child: PostHeaderRow()),
-                  PickCounter(index: widget.index, total: widget.total),
-                ],
-              ),
-              const Spacer(),
               if (product != null)
                 AnimatedSlide(
                   offset: _showProduct ? Offset.zero : const Offset(0, 0.6),
@@ -271,3 +263,4 @@ class _PostMediaState extends State<_PostMedia> {
     );
   }
 }
+
