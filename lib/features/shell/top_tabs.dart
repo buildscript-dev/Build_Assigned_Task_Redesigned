@@ -1,3 +1,5 @@
+import 'dart:ui' show lerpDouble;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -137,9 +139,33 @@ class _CommunitiesScreenState extends State<CommunitiesScreen> {
   int _earnPage = 0;
   bool _topStarred = true;
 
+  final _stackKey = GlobalKey();
+  late final _pageScroll = ScrollController()..addListener(_onPageScroll);
+  double _stackReveal = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _onPageScroll());
+  }
+
+  void _onPageScroll() {
+    final box = _stackKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null || !box.attached) return;
+    final screenHeight = MediaQuery.of(context).size.height;
+    final topY = box.localToGlobal(Offset.zero).dy;
+    const revealDistance = 180.0;
+    final referenceY = screenHeight * 0.78;
+    final next = ((referenceY - topY) / revealDistance).clamp(0.0, 1.0);
+    if ((next - _stackReveal).abs() > 0.002) {
+      setState(() => _stackReveal = next);
+    }
+  }
+
   @override
   void dispose() {
     _earnController.dispose();
+    _pageScroll.dispose();
     super.dispose();
   }
 
@@ -203,6 +229,7 @@ class _CommunitiesScreenState extends State<CommunitiesScreen> {
       index: -1,
       topTabIndex: 2,
       body: ListView(
+        controller: _pageScroll,
         padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
         children: [
           const SectionHeading('Communities'),
@@ -390,13 +417,17 @@ class _CommunitiesScreenState extends State<CommunitiesScreen> {
           const SizedBox(height: 26),
           const KickerLabel('Join more communities'),
           const SizedBox(height: 12),
-          _CommunityStack(
-            items: _communities,
-            onToggleJoin: (i) => setState(
-              () => _communities[i] = (
-                _communities[i].$1,
-                _communities[i].$2,
-                !_communities[i].$3,
+          KeyedSubtree(
+            key: _stackKey,
+            child: _CommunityStack(
+              items: _communities,
+              reveal: _stackReveal,
+              onToggleJoin: (i) => setState(
+                () => _communities[i] = (
+                  _communities[i].$1,
+                  _communities[i].$2,
+                  !_communities[i].$3,
+                ),
               ),
             ),
           ),
@@ -839,197 +870,79 @@ class _ChallengeTeaserCardState extends State<_ChallengeTeaserCard> {
   }
 }
 
-/// Collapsed = an Apple-notification-style peek stack (front card full,
-/// the next two peeking behind, offset/scaled/faded); tap to unfurl into
-/// the normal scrollable list, tap "Show less" to restack.
-class _CommunityStack extends StatefulWidget {
-  const _CommunityStack({required this.items, required this.onToggleJoin});
+/// Apple-notification-style peek stack, driven entirely by [reveal] (0..1)
+/// which the parent computes from how far this widget has scrolled up into
+/// view — not a tap. At reveal 0 the front card is full-size with the next
+/// two items peeking as thin slivers behind it; scrolling up smoothly grows
+/// each row into place (front-most first), scrolling back down reverses it.
+class _CommunityStack extends StatelessWidget {
+  const _CommunityStack({
+    required this.items,
+    required this.reveal,
+    required this.onToggleJoin,
+  });
 
   final List<(String, String, bool)> items;
+  final double reveal;
   final void Function(int index) onToggleJoin;
 
-  @override
-  State<_CommunityStack> createState() => _CommunityStackState();
-}
-
-class _CommunityStackState extends State<_CommunityStack> {
-  bool _expanded = false;
-  bool _collapsing = false;
-
-  static const _stagger = Duration(milliseconds: 45);
-  static const _rowDuration = Duration(milliseconds: 340);
-
-  void _toggle() {
-    HapticFeedback.lightImpact();
-    if (_expanded) {
-      // Bottom-first exit (mirrors Apple's stack restacking): let each row
-      // play its reverse animation, then flip back to the collapsed view.
-      setState(() => _collapsing = true);
-      final total =
-          _stagger * (widget.items.length - 1) + _rowDuration + _stagger;
-      Future.delayed(total, () {
-        if (!mounted) return;
-        setState(() {
-          _expanded = false;
-          _collapsing = false;
-        });
-      });
-    } else {
-      setState(() => _expanded = true);
-    }
-  }
+  static const _rowHeight = 68.0;
+  static const _rowGap = 10.0;
+  static const _peekStep = 16.0;
+  static const _peekSliverHeight = 26.0;
 
   @override
   Widget build(BuildContext context) {
-    final ink = Theme.of(context).brightness == Brightness.dark
-        ? Colors.white
-        : AppColors.ink;
-    if (_expanded || _collapsing) {
-      return Column(
-        children: [
-          for (var i = 0; i < widget.items.length; i++)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: _StackRow(
-                enterDelay: _stagger * i,
-                exitDelay: _stagger * (widget.items.length - 1 - i),
-                collapsing: _collapsing,
-                child: _CommunityRow(
-                  item: widget.items[i],
-                  onToggleJoin: () => widget.onToggleJoin(i),
-                ),
-              ),
-            ),
-          AnimatedOpacity(
-            opacity: _collapsing ? 0 : 1,
-            duration: _rowDuration,
-            child: GestureDetector(
-              onTap: _toggle,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      'Show less',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: ink.withValues(alpha: .6),
-                      ),
-                    ),
-                    Icon(
-                      Icons.expand_less_rounded,
-                      size: 18,
-                      color: ink.withValues(alpha: .6),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      );
-    }
-
-    final peek = widget.items.length < 3 ? widget.items.length : 3;
-    const frontHeight = 68.0;
-    const step = 16.0;
-    final dark = Theme.of(context).brightness == Brightness.dark;
-    final peekColor = dark ? AppColors.darkCard : AppColors.cream;
+    final maxHeight = items.length * (_rowHeight + _rowGap);
     return SizedBox(
-      height: frontHeight + peek * step,
+      height: maxHeight,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          // Peeking cards behind the front one — flat, tinted, bordered
-          // slivers (no soft shadow of their own) so they read clearly as
-          // stacked cards instead of blending into the front card's blur.
-          for (var i = peek - 1; i >= 1; i--)
-            Positioned(
-              top: frontHeight - 6 + i * step,
-              left: i * 12.0,
-              right: i * 12.0,
-              child: GestureDetector(
-                onTap: _toggle,
-                behavior: HitTestBehavior.opaque,
-                child: Container(
-                  height: 26,
-                  decoration: BoxDecoration(
-                    color: peekColor.withValues(alpha: 1 - (i - 1) * 0.3),
-                    borderRadius: BorderRadius.circular(Corners.md),
-                    border: Border.all(
-                      color: AppColors.brandGreen.withValues(alpha: .18),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          // Front card — avatar/name area expands the stack; the Join pill
-          // is a sibling (not nested) so its own tap keeps working.
-          Positioned(
-            left: 0,
-            right: 0,
-            top: 0,
-            child: SoftCard(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: _toggle,
-                      behavior: HitTestBehavior.opaque,
-                      child: _CommunityIdentity(item: widget.items[0]),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  _JoinPill(
-                    joined: widget.items[0].$3,
-                    onTap: () => widget.onToggleJoin(0),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          if (widget.items.length > 1)
+          for (var i = 0; i < items.length; i++) _buildRow(context, i),
+          if (items.length > 1)
             Positioned(
               right: 6,
-              bottom: -6,
+              bottom: lerpDouble(-6, maxHeight - _rowHeight - 6, reveal),
               child: IgnorePointer(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 3,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.brandGreen,
-                    borderRadius: BorderRadius.circular(10),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: AppColors.cardShadow,
-                        blurRadius: 6,
-                        offset: Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        '+${widget.items.length - 1}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w800,
+                child: AnimatedOpacity(
+                  opacity: 1 - reveal,
+                  duration: const Duration(milliseconds: 120),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.brandGreen,
+                      borderRadius: BorderRadius.circular(10),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: AppColors.cardShadow,
+                          blurRadius: 6,
+                          offset: Offset(0, 2),
                         ),
-                      ),
-                      const SizedBox(width: 2),
-                      const Icon(
-                        Icons.expand_more_rounded,
-                        size: 13,
-                        color: Colors.white,
-                      ),
-                    ],
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '+${items.length - 1}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(width: 2),
+                        const Icon(
+                          Icons.expand_more_rounded,
+                          size: 13,
+                          color: Colors.white,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -1038,80 +951,52 @@ class _CommunityStackState extends State<_CommunityStack> {
       ),
     );
   }
-}
 
-/// Plays a spring-ish rise+fade on mount (stack expand), and — if told to
-/// collapse — the same motion in reverse before the parent restacks.
-/// Delays are pre-computed by the parent so rows cascade top-first on the
-/// way in and bottom-first on the way out, like the lock-screen stack.
-class _StackRow extends StatefulWidget {
-  const _StackRow({
-    required this.enterDelay,
-    required this.exitDelay,
-    required this.collapsing,
-    required this.child,
-  });
-
-  final Duration enterDelay;
-  final Duration exitDelay;
-  final bool collapsing;
-  final Widget child;
-
-  @override
-  State<_StackRow> createState() => _StackRowState();
-}
-
-class _StackRowState extends State<_StackRow>
-    with SingleTickerProviderStateMixin {
-  late final _controller = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 340),
-  );
-  late final _curve = CurvedAnimation(
-    parent: _controller,
-    curve: Curves.easeOutBack,
-    reverseCurve: Curves.easeIn,
-  );
-
-  @override
-  void initState() {
-    super.initState();
-    Future.delayed(widget.enterDelay, () {
-      if (mounted) _controller.forward();
-    });
-  }
-
-  @override
-  void didUpdateWidget(covariant _StackRow old) {
-    super.didUpdateWidget(old);
-    if (widget.collapsing && !old.collapsing) {
-      Future.delayed(widget.exitDelay, () {
-        if (mounted) _controller.reverse();
-      });
+  Widget _buildRow(BuildContext context, int i) {
+    final row = _CommunityRow(
+      item: items[i],
+      onToggleJoin: () => onToggleJoin(i),
+    );
+    if (i == 0) {
+      return Positioned(left: 0, right: 0, top: 0, child: row);
     }
-  }
 
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
+    // Each row beyond the front gets its own local progress so the stack
+    // unfurls front-first as reveal increases (and restacks in reverse).
+    final t = ((reveal * items.length) - (i - 1)).clamp(0.0, 1.0);
+    final depth = i <= 2 ? i : 2;
+    final collapsedTop = (_rowHeight - 6) + depth * _peekStep;
+    final collapsedInset = depth * 12.0;
+    final collapsedHeight = i <= 2 ? _peekSliverHeight : 0.0;
+    final collapsedOpacity = i == 1
+        ? 0.85
+        : i == 2
+        ? 0.55
+        : 0.0;
+    final expandedTop = i * (_rowHeight + _rowGap);
 
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _curve,
-      builder: (context, child) {
-        final settled = _curve.value.clamp(0.0, 1.0);
-        return Opacity(
-          opacity: settled,
-          child: Transform.translate(
-            offset: Offset(0, (1 - _curve.value) * 18),
-            child: Transform.scale(scale: 0.92 + 0.08 * settled, child: child),
+    final top = lerpDouble(collapsedTop, expandedTop, t)!;
+    final inset = lerpDouble(collapsedInset, 0, t)!;
+    final height = lerpDouble(collapsedHeight, _rowHeight, t)!;
+    final opacity = lerpDouble(collapsedOpacity, 1.0, t)!;
+
+    return Positioned(
+      top: top,
+      left: inset,
+      right: inset,
+      child: IgnorePointer(
+        ignoring: t < 0.9,
+        child: Opacity(
+          opacity: opacity,
+          child: ClipRect(
+            child: Align(
+              alignment: Alignment.topCenter,
+              heightFactor: (height / _rowHeight).clamp(0.001, 1.0),
+              child: row,
+            ),
           ),
-        );
-      },
-      child: widget.child,
+        ),
+      ),
     );
   }
 }

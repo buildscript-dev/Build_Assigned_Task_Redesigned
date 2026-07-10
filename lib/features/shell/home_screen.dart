@@ -28,49 +28,15 @@ class HomeScreen extends StatelessWidget {
             children: [
               for (final (i, s) in dashStats.indexed) ...[
                 Expanded(
-                  child: SoftCard(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    child: Column(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: const BoxDecoration(
-                            gradient: AppColors.heroGradient,
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            const [
-                              Icons.grid_view_rounded,
-                              Icons.link_rounded,
-                              Icons.payments_rounded,
-                            ][i],
-                            color: Colors.white,
-                            size: 14,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        ShaderMask(
-                          shaderCallback: (r) =>
-                              AppColors.heroGradient.createShader(r),
-                          child: Text(
-                            s.value,
-                            style: const TextStyle(
-                              fontSize: 21,
-                              fontWeight: FontWeight.w800,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          s.label,
-                          style: const TextStyle(
-                            fontSize: 11.5,
-                            color: AppColors.greyText,
-                          ),
-                        ),
-                      ],
-                    ),
+                  child: _StatCard(
+                    icon: const [
+                      Icons.grid_view_rounded,
+                      Icons.link_rounded,
+                      Icons.payments_rounded,
+                    ][i],
+                    value: s.value,
+                    label: s.label,
+                    delay: Duration(milliseconds: i * 120),
                   ),
                 ),
                 if (s != dashStats.last) const SizedBox(width: 10),
@@ -198,6 +164,121 @@ class HomeScreen extends StatelessWidget {
                 ),
               ),
             ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Bento-style stat card: a progress ring behind the icon and a count-up
+/// number, both animating in on mount (staggered per card via [delay]).
+class _StatCard extends StatefulWidget {
+  const _StatCard({
+    required this.icon,
+    required this.value,
+    required this.label,
+    required this.delay,
+  });
+
+  final IconData icon;
+  final String value;
+  final String label;
+  final Duration delay;
+
+  @override
+  State<_StatCard> createState() => _StatCardState();
+}
+
+class _StatCardState extends State<_StatCard>
+    with SingleTickerProviderStateMixin {
+  late final _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 900),
+  );
+  late final _curve = CurvedAnimation(
+    parent: _controller,
+    curve: Curves.easeOutCubic,
+  );
+
+  static final _valuePattern = RegExp(r'^(\D*)([\d,]+)(.*)$');
+
+  @override
+  void initState() {
+    super.initState();
+    Future.delayed(widget.delay, () {
+      if (mounted) _controller.forward();
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final match = _valuePattern.firstMatch(widget.value);
+    final prefix = match?.group(1) ?? '';
+    final target = int.tryParse((match?.group(2) ?? '0').replaceAll(',', ''));
+    final suffix = match?.group(3) ?? '';
+    return SoftCard(
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      child: Column(
+        children: [
+          SizedBox(
+            width: 34,
+            height: 34,
+            child: AnimatedBuilder(
+              animation: _curve,
+              builder: (context, child) => Stack(
+                alignment: Alignment.center,
+                children: [
+                  CircularProgressIndicator(
+                    value: _curve.value * 0.78,
+                    strokeWidth: 3,
+                    backgroundColor: AppColors.trackGrey,
+                    valueColor: const AlwaysStoppedAnimation(
+                      AppColors.brandGreen,
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: const BoxDecoration(
+                      gradient: AppColors.heroGradient,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(widget.icon, color: Colors.white, size: 13),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          ShaderMask(
+            shaderCallback: (r) => AppColors.heroGradient.createShader(r),
+            child: AnimatedBuilder(
+              animation: _curve,
+              builder: (context, child) {
+                final shown = target == null
+                    ? widget.value
+                    : '$prefix${(target * _curve.value).round()}$suffix';
+                return Text(
+                  shown,
+                  style: const TextStyle(
+                    fontSize: 21,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            widget.label,
+            style: const TextStyle(fontSize: 11.5, color: AppColors.greyText),
+          ),
         ],
       ),
     );
