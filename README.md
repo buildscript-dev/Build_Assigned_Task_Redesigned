@@ -5,9 +5,10 @@ feature from the provided Figma design: an AI-generated, ready-to-share
 product post feed for Oriflame consultants, with one-tap sharing to social
 platforms.
 
-This repo is the **redesigned** build — same feature set as the original
-submission (kept untouched in its own repo), with a reimagined visual
-identity, motion system, and micro-interactions.
+This repo is the **reimagined** build — same feature set as the original
+submission ([smart-posts](https://github.com/buildscript-dev/smart-posts),
+kept untouched), with a redesigned visual identity, motion system, and
+micro-interactions.
 
 ## How to run
 
