@@ -9,6 +9,7 @@ import '../../data/gallery_store.dart';
 import '../../data/mock_posts.dart';
 import '../../data/mock_shell.dart';
 import '../../shared/ui_kit.dart';
+import '../smart_post/post_card_experiment.dart';
 import 'shell.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -192,6 +193,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 HapticFeedback.selectionClick();
                 toggleTheme();
               },
+            ),
+          ),
+          const SizedBox(height: 10),
+          SoftCard(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            child: ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.science_rounded, color: AppColors.gold),
+              title: Text(
+                'New post card (experiment)',
+                style: TextStyle(fontWeight: FontWeight.w600, color: ink),
+              ),
+              subtitle: const Text(
+                "Try the alternate style — doesn't change your feed",
+                style: TextStyle(fontSize: 12),
+              ),
+              trailing: const Icon(
+                Icons.chevron_right_rounded,
+                color: AppColors.greyMuted,
+              ),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const PostCardExperimentScreen(),
+                ),
+              ),
             ),
           ),
           const SizedBox(height: 24),

@@ -14,6 +14,10 @@ final editedCaptions = <int, String>{};
 /// Liked state — session-local, no backend.
 final likedPosts = <int>{};
 
+/// Per-post image focus point for the experimental card style's crop
+/// editor — session-local, defaults to centered.
+final imageFocus = <int, Alignment>{};
+
 /// Full caption text for a post: the edit or the generated default.
 String captionTextFor(int index) =>
     editedCaptions[index] ??
