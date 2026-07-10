@@ -11,8 +11,6 @@ const referralLink = 'www.oriflame.com/giordani/amada3012';
 /// User-edited captions, keyed by post index (session-local, no backend).
 final editedCaptions = <int, String>{};
 
-/// Liked state — session-local, no backend.
-final likedPosts = <int>{};
 
 /// Per-post, per-card-size image focus point and zoom for the crop editor —
 /// session-local, defaults to centered / no zoom. Key via [cropKey] so the
