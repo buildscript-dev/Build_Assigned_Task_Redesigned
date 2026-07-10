@@ -906,116 +906,70 @@ class _CommunityStack extends StatelessWidget {
   final void Function(int index) onToggleJoin;
 
   static const _rowHeight = 68.0;
-  static const _rowGap = 10.0;
-  static const _peekStep = 16.0;
-  static const _peekSliverHeight = 26.0;
+  static const _rowGap = 14.0;
+  static const _peekHeight = 30.0;
+  static const _breathingRoom = 40.0;
 
   @override
   Widget build(BuildContext context) {
-    final maxHeight = items.length * (_rowHeight + _rowGap);
-    return SizedBox(
-      height: maxHeight,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          for (var i = 0; i < items.length; i++) _buildRow(context, i),
-          if (items.length > 1)
-            Positioned(
-              right: 6,
-              bottom: lerpDouble(-6, maxHeight - _rowHeight - 6, reveal),
-              child: IgnorePointer(
-                child: AnimatedOpacity(
-                  opacity: 1 - reveal,
-                  duration: const Duration(milliseconds: 120),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 3,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.brandGreen,
-                      borderRadius: BorderRadius.circular(10),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: AppColors.cardShadow,
-                          blurRadius: 6,
-                          offset: Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          '+${items.length - 1}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        const SizedBox(width: 2),
-                        const Icon(
-                          Icons.expand_more_rounded,
-                          size: 13,
-                          color: Colors.white,
-                        ),
-                      ],
-                    ),
-                  ),
+    final n = items.length;
+    final maxHeight = n * (_rowHeight + _rowGap) + _breathingRoom;
+
+    // Rows are positioned sequentially — like coupled train cars — so row i
+    // always starts its own reveal from wherever row (i-1) *currently* is,
+    // never from a stale fixed offset. That's what stops a later card's
+    // arrival from overlapping/disturbing the one settled just above it.
+    final rows = <Widget>[
+      Positioned(
+        left: 0,
+        right: 0,
+        top: 0,
+        child: _CommunityRow(
+          item: items[0],
+          onToggleJoin: () => onToggleJoin(0),
+        ),
+      ),
+    ];
+    var prevBottom = _rowHeight;
+    for (var i = 1; i < n; i++) {
+      final windowStart = (i - 1) / n;
+      final windowEnd = i / n;
+      final t = ((reveal - windowStart) / (windowEnd - windowStart)).clamp(
+        0.0,
+        1.0,
+      );
+
+      final peekTop = prevBottom - 8;
+      final settledTop = prevBottom + _rowGap;
+      final top = lerpDouble(peekTop, settledTop, t)!;
+      final height = lerpDouble(_peekHeight, _rowHeight, t)!;
+
+      rows.add(
+        Positioned(
+          top: top,
+          left: 0,
+          right: 0,
+          child: IgnorePointer(
+            ignoring: t < 0.9,
+            child: ClipRect(
+              child: Align(
+                alignment: Alignment.topCenter,
+                heightFactor: (height / _rowHeight).clamp(0.001, 1.0),
+                child: _CommunityRow(
+                  item: items[i],
+                  onToggleJoin: () => onToggleJoin(i),
                 ),
               ),
             ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRow(BuildContext context, int i) {
-    final row = _CommunityRow(
-      item: items[i],
-      onToggleJoin: () => onToggleJoin(i),
-    );
-    if (i == 0) {
-      return Positioned(left: 0, right: 0, top: 0, child: row);
-    }
-
-    // Each row beyond the front gets its own local progress so the stack
-    // unfurls front-first as reveal increases (and restacks in reverse).
-    final t = ((reveal * items.length) - (i - 1)).clamp(0.0, 1.0);
-    final depth = i <= 2 ? i : 2;
-    final collapsedTop = (_rowHeight - 6) + depth * _peekStep;
-    final collapsedInset = depth * 12.0;
-    final collapsedHeight = i <= 2 ? _peekSliverHeight : 0.0;
-    final collapsedOpacity = i == 1
-        ? 0.85
-        : i == 2
-        ? 0.55
-        : 0.0;
-    final expandedTop = i * (_rowHeight + _rowGap);
-
-    final top = lerpDouble(collapsedTop, expandedTop, t)!;
-    final inset = lerpDouble(collapsedInset, 0, t)!;
-    final height = lerpDouble(collapsedHeight, _rowHeight, t)!;
-    final opacity = lerpDouble(collapsedOpacity, 1.0, t)!;
-
-    return Positioned(
-      top: top,
-      left: inset,
-      right: inset,
-      child: IgnorePointer(
-        ignoring: t < 0.9,
-        child: Opacity(
-          opacity: opacity,
-          child: ClipRect(
-            child: Align(
-              alignment: Alignment.topCenter,
-              heightFactor: (height / _rowHeight).clamp(0.001, 1.0),
-              child: row,
-            ),
           ),
         ),
-      ),
+      );
+      prevBottom = top + height;
+    }
+
+    return SizedBox(
+      height: maxHeight,
+      child: Stack(clipBehavior: Clip.none, children: rows),
     );
   }
 }
