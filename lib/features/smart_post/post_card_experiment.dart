@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../app/theme.dart';
 import '../../data/mock_posts.dart';
@@ -71,6 +72,159 @@ void _showShareSheet(BuildContext context, int index) {
   HapticFeedback.selectionClick();
   final dark = Theme.of(context).brightness == Brightness.dark;
   final ink = dark ? Colors.white : AppColors.ink;
+  final tile = dark ? Colors.white.withValues(alpha: .08) : AppColors.trackGrey;
+  showModalBottomSheet(
+    context: context,
+    backgroundColor: dark ? AppColors.darkCard : Colors.white,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+    ),
+    builder: (sheetContext) => StatefulBuilder(
+      builder: (sheetContext, setSheetState) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: AppColors.greyMuted,
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              Center(
+                child: Text(
+                  'Share to',
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                    color: ink,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              GridView.count(
+                crossAxisCount: 4,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                mainAxisSpacing: 14,
+                crossAxisSpacing: 8,
+                childAspectRatio: 0.78,
+                children: [
+                  for (final p in sharePlatforms)
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () {
+                        Navigator.of(sheetContext).pop();
+                        _share(context, p, index);
+                      },
+                      child: Column(
+                        children: [
+                          Container(
+                            width: 56,
+                            height: 56,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: tile,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Image.asset(
+                              p.iconAsset,
+                              width: 32,
+                              height: 32,
+                              fit: BoxFit.contain,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            p.name,
+                            maxLines: 2,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              height: 1.15,
+                              fontWeight: FontWeight.w600,
+                              color: ink.withValues(alpha: .85),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              // Referral link with one-tap copy — the share flow's whole point.
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 11,
+                ),
+                decoration: BoxDecoration(
+                  color: tile,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.link_rounded,
+                      size: 18,
+                      color: AppColors.greyText,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        referralLink,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          color: AppColors.greyText,
+                        ),
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        Clipboard.setData(
+                          const ClipboardData(text: referralLink),
+                        );
+                        setSheetState(() => _linkCopied = true);
+                      },
+                      child: Text(
+                        _linkCopied ? 'Copied ✓' : 'Copy',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.brandGreen,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  ).whenComplete(() => _linkCopied = false);
+}
+
+/// Session flag for the share sheet's "Copied ✓" feedback.
+bool _linkCopied = false;
+
+/// Ad details sheet — what the ad is about, benefits, price, and a buy
+/// link. Product only: no music, no caption (that's the post's sheet).
+void _showProductSheet(BuildContext context, Product product) {
+  HapticFeedback.selectionClick();
+  final dark = Theme.of(context).brightness == Brightness.dark;
+  final ink = dark ? Colors.white : AppColors.ink;
   showModalBottomSheet(
     context: context,
     backgroundColor: dark ? AppColors.darkCard : Colors.white,
@@ -94,49 +248,114 @@ void _showShareSheet(BuildContext context, int index) {
                 ),
               ),
             ),
-            const SizedBox(height: 16),
-            Text(
-              'Share to',
-              style: TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w800,
-                color: ink,
-              ),
-            ),
             const SizedBox(height: 18),
-            Wrap(
-              spacing: 22,
-              runSpacing: 18,
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                for (final p in sharePlatforms)
-                  GestureDetector(
-                    onTap: () {
-                      Navigator.of(sheetContext).pop();
-                      _share(context, p, index);
-                    },
-                    child: SizedBox(
-                      width: 64,
-                      child: Column(
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(Corners.sm),
+                  child: Container(
+                    color: Colors.white,
+                    width: 72,
+                    height: 72,
+                    child: Image.asset(product.thumbAsset, fit: BoxFit.cover),
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        product.name,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: ink,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
                         children: [
-                          Image.asset(
-                            p.iconAsset,
-                            width: 46,
-                            height: 46,
-                            fit: BoxFit.contain,
-                          ),
-                          const SizedBox(height: 6),
                           Text(
-                            p.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            textAlign: TextAlign.center,
-                            style: TextStyle(fontSize: 11, color: ink),
+                            product.price,
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                              color: ink,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.brandGreen.withValues(
+                                alpha: .15,
+                              ),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              product.discount,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.brandGreen,
+                              ),
+                            ),
                           ),
                         ],
                       ),
-                    ),
+                    ],
                   ),
+                ),
               ],
+            ),
+            if (product.about.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              Text(
+                product.about,
+                style: TextStyle(fontSize: 13.5, height: 1.4, color: ink),
+              ),
+            ],
+            if (product.benefits.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              for (final b in product.benefits)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(
+                        Icons.check_circle_rounded,
+                        size: 17,
+                        color: AppColors.brandGreen,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          b,
+                          style: TextStyle(fontSize: 13, color: ink),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+            const SizedBox(height: 14),
+            AppButton(
+              label: 'Buy now · ${product.price}',
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                if (product.buyUrl.isNotEmpty) {
+                  launchUrl(
+                    Uri.parse(product.buyUrl),
+                    mode: LaunchMode.externalApplication,
+                  );
+                }
+              },
             ),
           ],
         ),
@@ -145,18 +364,26 @@ void _showShareSheet(BuildContext context, int index) {
   );
 }
 
-/// Drag-to-reposition + pinch-to-zoom editor for "which part of the photo
-/// should show" — live-previews the result at both the small-card and
-/// full-size-card aspect ratios so there's no guessing before Save.
+/// Drag-to-reposition + pinch-to-zoom editor, per card size: pick "Small
+/// card" or "Full size", each keeps its own crop. The crop frame matches the
+/// real card's aspect and renders through the same _FocusZoomImage as the
+/// cards themselves, so what you see here is exactly what ships.
 Future<void> _editImageFocus(
   BuildContext context,
   SmartPost post,
   int index,
   VoidCallback onSaved,
 ) {
-  var focus = imageFocus[index] ?? Alignment.center;
-  var zoom = imageZoom[index] ?? 1.0;
-  var baseZoom = zoom;
+  var full = false;
+  final focus = {
+    false: imageFocus[cropKey(index, false)] ?? Alignment.center,
+    true: imageFocus[cropKey(index, true)] ?? Alignment.center,
+  };
+  final zoom = {
+    false: imageZoom[cropKey(index, false)] ?? 1.0,
+    true: imageZoom[cropKey(index, true)] ?? 1.0,
+  };
+  var baseZoom = 1.0;
   return showModalBottomSheet(
     context: context,
     isScrollControlled: true,
@@ -169,20 +396,28 @@ Future<void> _editImageFocus(
       final ink = dark ? Colors.white : AppColors.ink;
       return StatefulBuilder(
         builder: (context, setSheetState) {
-          Widget preview(double aspect, double width, String label) {
+          Widget preview(double aspect, double width, String label, bool f) {
             return Column(
               children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(Corners.sm),
-                  child: SizedBox(
-                    width: width,
-                    height: width / aspect,
-                    child: Transform.scale(
-                      scale: zoom,
-                      child: Image.asset(
-                        post.imageAsset,
-                        fit: BoxFit.cover,
-                        alignment: focus,
+                Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(Corners.sm),
+                    border: Border.all(
+                      width: 2,
+                      color: f == full
+                          ? AppColors.brandGreen
+                          : Colors.transparent,
+                    ),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(Corners.sm),
+                    child: SizedBox(
+                      width: width,
+                      height: width / aspect,
+                      child: _FocusZoomImage(
+                        asset: post.imageAsset,
+                        focus: focus[f]!,
+                        zoom: zoom[f]!,
                       ),
                     ),
                   ),
@@ -199,6 +434,8 @@ Future<void> _editImageFocus(
             );
           }
 
+          // Crop frame mirrors the real card's shape.
+          final aspect = full ? 0.56 : 0.82;
           return Container(
             padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
             decoration: BoxDecoration(
@@ -229,67 +466,63 @@ Future<void> _editImageFocus(
                 ),
                 const SizedBox(height: 4),
                 const Text(
-                  'Drag to reposition, pinch to zoom',
+                  'Pick a card size, then drag to reposition and pinch to zoom',
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 12.5, color: AppColors.greyText),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
+                SegmentedButton<bool>(
+                  segments: const [
+                    ButtonSegment(value: false, label: Text('Small card')),
+                    ButtonSegment(value: true, label: Text('Full size')),
+                  ],
+                  selected: {full},
+                  onSelectionChanged: (s) =>
+                      setSheetState(() => full = s.first),
+                ),
+                const SizedBox(height: 14),
                 ClipRRect(
                   borderRadius: BorderRadius.circular(Corners.lg),
                   child: GestureDetector(
-                    onScaleStart: (_) => baseZoom = zoom,
+                    onScaleStart: (_) => baseZoom = zoom[full]!,
                     onScaleUpdate: (details) => setSheetState(() {
-                      zoom = (baseZoom * details.scale).clamp(1.0, 3.0);
-                      focus = Alignment(
-                        (focus.x - details.focalPointDelta.dx / 130).clamp(
-                          -1.0,
-                          1.0,
-                        ),
-                        (focus.y - details.focalPointDelta.dy / 130).clamp(
-                          -1.0,
-                          1.0,
-                        ),
+                      zoom[full] = (baseZoom * details.scale).clamp(1.0, 3.0);
+                      focus[full] = Alignment(
+                        (focus[full]!.x - details.focalPointDelta.dx / 100)
+                            .clamp(-1.0, 1.0),
+                        (focus[full]!.y - details.focalPointDelta.dy / 100)
+                            .clamp(-1.0, 1.0),
                       );
                     }),
                     child: SizedBox(
-                      width: 260,
-                      height: 260,
-                      child: Transform.scale(
-                        scale: zoom,
-                        child: Image.asset(
-                          post.imageAsset,
-                          fit: BoxFit.cover,
-                          alignment: focus,
-                        ),
+                      width: 300 * aspect,
+                      height: 300,
+                      child: _FocusZoomImage(
+                        asset: post.imageAsset,
+                        focus: focus[full]!,
+                        zoom: zoom[full]!,
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(height: 18),
-                Text(
-                  'Preview',
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w700,
-                    color: ink,
-                  ),
-                ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 16),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    preview(0.82, 74, 'Small card'),
+                    preview(0.82, 74, 'Small card', false),
                     const SizedBox(width: 24),
-                    preview(1.05, 100, 'Full size'),
+                    preview(0.56, 62, 'Full size', true),
                   ],
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 18),
                 AppButton(
                   label: 'Save',
                   onTap: () {
-                    imageFocus[index] = focus;
-                    imageZoom[index] = zoom;
+                    imageFocus[cropKey(index, false)] = focus[false]!;
+                    imageZoom[cropKey(index, false)] = zoom[false]!;
+                    imageFocus[cropKey(index, true)] = focus[true]!;
+                    imageZoom[cropKey(index, true)] = zoom[true]!;
                     onSaved();
                     Navigator.of(context).pop();
                   },
@@ -355,24 +588,6 @@ void _showEditMenu(
               _editImageFocus(context, post, index, onChanged);
             },
           ),
-          ListTile(
-            leading: const Icon(
-              Icons.visibility_rounded,
-              color: AppColors.brandGreen,
-            ),
-            title: Text('Preview full post', style: TextStyle(color: ink)),
-            subtitle: const Text('Caption, music, product, quick share'),
-            onTap: () {
-              Navigator.of(sheetContext).pop();
-              showPostDetailSheet(
-                context,
-                post: post,
-                index: index,
-                onEditCaption: () => _editCaption(context, index, onChanged),
-                onShare: (p) => _share(context, p, index),
-              );
-            },
-          ),
         ],
       ),
     ),
@@ -400,39 +615,76 @@ void _openExpanded(BuildContext context, int index) {
 /// Rounded-corner photo with the ad chip floating above the caption area —
 /// shared by both the small card and the full-size page so a crop/zoom
 /// edit looks identical in both places.
+/// Renders the photo under a (focus, zoom) crop: zoom enlarges the image
+/// inside a clipped box, focus (-1..1 on both axes) pans which part shows.
+/// Shared by the cards and the crop editor so the edit is exactly what
+/// renders everywhere.
+class _FocusZoomImage extends StatelessWidget {
+  const _FocusZoomImage({
+    required this.asset,
+    required this.focus,
+    required this.zoom,
+  });
+
+  final String asset;
+  final Alignment focus;
+  final double zoom;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, c) => ClipRect(
+        child: OverflowBox(
+          minWidth: c.maxWidth * zoom,
+          maxWidth: c.maxWidth * zoom,
+          minHeight: c.maxHeight * zoom,
+          maxHeight: c.maxHeight * zoom,
+          alignment: focus,
+          child: Image.asset(asset, fit: BoxFit.cover, alignment: focus),
+        ),
+      ),
+    );
+  }
+}
+
 class _PostImage extends StatelessWidget {
   const _PostImage({
     required this.post,
     required this.index,
     required this.aspectRatio,
     required this.showAd,
+    this.full = false,
   });
 
   final SmartPost post;
   final int index;
-  final double aspectRatio;
+
+  /// Null = fill whatever height the parent gives (feed cards sized to the
+  /// viewport); non-null = fixed aspect (experiment list, expanded view).
+  final double? aspectRatio;
   final bool showAd;
+
+  /// Which saved crop to render: the small card's or the full-size view's.
+  final bool full;
 
   @override
   Widget build(BuildContext context) {
-    final focus = imageFocus[index] ?? Alignment.center;
-    final zoom = imageZoom[index] ?? 1.0;
+    final focus = imageFocus[cropKey(index, full)] ?? Alignment.center;
+    final zoom = imageZoom[cropKey(index, full)] ?? 1.0;
+    final image = _FocusZoomImage(
+      asset: post.imageAsset,
+      focus: focus,
+      zoom: zoom,
+    );
     return ClipRRect(
       borderRadius: BorderRadius.circular(Corners.lg),
       child: Stack(
         fit: StackFit.passthrough,
         children: [
-          AspectRatio(
-            aspectRatio: aspectRatio,
-            child: Transform.scale(
-              scale: zoom,
-              child: Image.asset(
-                post.imageAsset,
-                fit: BoxFit.cover,
-                alignment: focus,
-              ),
-            ),
-          ),
+          if (aspectRatio == null)
+            SizedBox.expand(child: image)
+          else
+            AspectRatio(aspectRatio: aspectRatio!, child: image),
           if (post.product != null)
             Positioned(
               left: 14,
@@ -447,13 +699,7 @@ class _PostImage extends StatelessWidget {
                   child: _AdChip(
                     product: post.product!,
                     mood: post.moodA,
-                    onTap: () => showPostDetailSheet(
-                      context,
-                      post: post,
-                      index: index,
-                      onEditCaption: () => _editCaption(context, index, () {}),
-                      onShare: (p) => _share(context, p, index),
-                    ),
+                    onTap: () => _showProductSheet(context, post.product!),
                   ),
                 ),
               ),
@@ -567,18 +813,21 @@ class _PostInfoBody extends StatelessWidget {
     required this.index,
     required this.caption,
     required this.captionMaxLines,
-    required this.showAd,
-    required this.onToggleAd,
+    required this.onShowMore,
     required this.onEdit,
+    this.pinActions = false,
   });
 
   final SmartPost post;
   final int index;
   final String caption;
   final int? captionMaxLines;
-  final bool showAd;
-  final VoidCallback onToggleAd;
+  final VoidCallback onShowMore;
   final VoidCallback onEdit;
+
+  /// True inside a fixed-height panel: the action row pins to the bottom so
+  /// it sits at the same spot regardless of caption length.
+  final bool pinActions;
 
   @override
   Widget build(BuildContext context) {
@@ -587,7 +836,7 @@ class _PostInfoBody extends StatelessWidget {
     const subtle = AppColors.greyText;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
+      mainAxisSize: pinActions ? MainAxisSize.max : MainAxisSize.min,
       children: [
         Row(
           children: [
@@ -661,23 +910,21 @@ class _PostInfoBody extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 16),
+        if (pinActions) const Spacer() else const SizedBox(height: 16),
         Row(
           children: [
             GestureDetector(
-              onTap: onToggleAd,
+              onTap: onShowMore,
               child: Row(
                 children: [
                   Icon(
-                    showAd
-                        ? Icons.local_offer_rounded
-                        : Icons.local_offer_outlined,
-                    size: 17,
+                    Icons.expand_more_rounded,
+                    size: 19,
                     color: ink.withValues(alpha: .7),
                   ),
-                  const SizedBox(width: 5),
+                  const SizedBox(width: 4),
                   Text(
-                    post.product?.discount ?? 'Ads',
+                    'Show more',
                     style: TextStyle(fontWeight: FontWeight.w700, color: ink),
                   ),
                 ],
@@ -715,10 +962,15 @@ class ExperimentPostCard extends StatefulWidget {
     super.key,
     required this.post,
     required this.index,
+    this.fillHeight = false,
   });
 
   final SmartPost post;
   final int index;
+
+  /// True when the parent gives the card a fixed height (feed): the image
+  /// flexes to fill leftover space instead of forcing a 0.82 aspect ratio.
+  final bool fillHeight;
 
   @override
   State<ExperimentPostCard> createState() => _ExperimentPostCardState();
@@ -739,12 +991,6 @@ class _ExperimentPostCardState extends State<ExperimentPostCard> {
   }
 
   void _refresh() => setState(() {});
-
-  void _toggleAd() {
-    if (widget.post.product == null) return;
-    HapticFeedback.selectionClick();
-    setState(() => _showAd = !_showAd);
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -775,23 +1021,41 @@ class _ExperimentPostCardState extends State<ExperimentPostCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          GestureDetector(
-            onTap: () => _openExpanded(context, widget.index),
-            child: _PostImage(
-              post: post,
-              index: widget.index,
-              aspectRatio: 0.82,
-              showAd: _showAd,
+          if (widget.fillHeight)
+            Expanded(
+              child: GestureDetector(
+                onTap: () => _openExpanded(context, widget.index),
+                child: _PostImage(
+                  post: post,
+                  index: widget.index,
+                  aspectRatio: null,
+                  showAd: _showAd,
+                ),
+              ),
+            )
+          else
+            GestureDetector(
+              onTap: () => _openExpanded(context, widget.index),
+              child: _PostImage(
+                post: post,
+                index: widget.index,
+                aspectRatio: 0.82,
+                showAd: _showAd,
+              ),
             ),
-          ),
           const SizedBox(height: 14),
           _PostInfoBody(
             post: post,
             index: widget.index,
             caption: caption,
             captionMaxLines: 2,
-            showAd: _showAd,
-            onToggleAd: _toggleAd,
+            onShowMore: () => showPostDetailSheet(
+              context,
+              post: post,
+              index: widget.index,
+              onEditCaption: () =>
+                  _editCaption(context, widget.index, _refresh),
+            ),
             onEdit: () => _showEditMenu(context, post, widget.index, _refresh),
           ),
         ],
@@ -959,68 +1223,93 @@ class _ExpandedPostPageState extends State<_ExpandedPostPage> {
 
   void _refresh() => setState(() {});
 
-  void _toggleAd() {
-    if (widget.post.product == null) return;
-    HapticFeedback.selectionClick();
-    setState(() => _showAd = !_showAd);
-  }
-
   @override
   Widget build(BuildContext context) {
-    final dark = Theme.of(context).brightness == Brightness.dark;
     final post = widget.post;
     final caption = editedCaptions[widget.index] ?? post.caption;
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(16, 70, 16, 32),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Full-size, undiminished — the ad chip is a small overlay, not a
-          // caption panel eating into the photo.
-          _PostImage(
-            post: post,
-            index: widget.index,
-            aspectRatio: 1.05,
-            showAd: _showAd,
-          ),
-          const SizedBox(height: 14),
-          // Same soft brand gradient wash as the Communities earn cards —
-          // one shared "glass" look across the app instead of a flat panel.
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  AppColors.brandGreen.withValues(alpha: dark ? .22 : .14),
-                  AppColors.gold.withValues(alpha: dark ? .16 : .10),
-                ],
-              ),
-              borderRadius: BorderRadius.circular(Corners.lg),
-              border: Border.all(
-                color: AppColors.brandGreen.withValues(alpha: .14),
-              ),
-              boxShadow: const [
-                BoxShadow(
-                  color: AppColors.cardShadow,
-                  blurRadius: 18,
-                  offset: Offset(0, 8),
+    // One full-screen card: photo fills it, info sits directly on the photo
+    // over a bottom fade so the background stays visible behind the text.
+    return SafeArea(
+      minimum: const EdgeInsets.fromLTRB(8, 8, 8, 8),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(Corners.lg),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            _PostImage(
+              post: post,
+              index: widget.index,
+              aspectRatio: null,
+              showAd: false,
+              full: true,
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Spacer(),
+                if (post.product != null)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 14, bottom: 14),
+                    child: AnimatedSlide(
+                      offset: _showAd ? Offset.zero : const Offset(0, 0.5),
+                      duration: const Duration(milliseconds: 400),
+                      curve: Curves.easeOut,
+                      child: AnimatedOpacity(
+                        opacity: _showAd ? 1 : 0,
+                        duration: const Duration(milliseconds: 400),
+                        child: _AdChip(
+                          product: post.product!,
+                          mood: post.moodA,
+                          onTap: () =>
+                              _showProductSheet(context, post.product!),
+                        ),
+                      ),
+                    ),
+                  ),
+                // Fixed height + capped caption: avatar and action row sit
+                // at the same spot on every page instead of drifting with
+                // caption length.
+                Container(
+                  width: double.infinity,
+                  height: 260,
+                  padding: const EdgeInsets.fromLTRB(18, 26, 18, 16),
+                  decoration: const BoxDecoration(
+                    // No panel — just a fade so text reads on any photo.
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.transparent,
+                        Colors.black38,
+                        Colors.black54,
+                      ],
+                    ),
+                  ),
+                  // Force light ink: text sits on the photo now.
+                  child: Theme(
+                    data: ThemeData(brightness: Brightness.dark),
+                    child: _PostInfoBody(
+                      post: post,
+                      index: widget.index,
+                      caption: caption,
+                      captionMaxLines: 4,
+                      pinActions: true,
+                      onShowMore: () => showPostDetailSheet(
+                        context,
+                        post: post,
+                        index: widget.index,
+                        onEditCaption: () =>
+                            _editCaption(context, widget.index, _refresh),
+                      ),
+                      onEdit: () =>
+                          _showEditMenu(context, post, widget.index, _refresh),
+                    ),
+                  ),
                 ),
               ],
             ),
-            child: _PostInfoBody(
-              post: post,
-              index: widget.index,
-              caption: caption,
-              captionMaxLines: null,
-              showAd: _showAd,
-              onToggleAd: _toggleAd,
-              onEdit: () =>
-                  _showEditMenu(context, post, widget.index, _refresh),
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
