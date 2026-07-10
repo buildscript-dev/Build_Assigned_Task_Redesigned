@@ -1,22 +1,17 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#2E3634"/>
-      <stop offset="1" stop-color="#161B19"/>
-    </linearGradient>
-    <linearGradient id="badge" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#3FAE91"/>
-      <stop offset="1" stop-color="#0E7C66"/>
-    </linearGradient>
-  </defs>
-  <rect width="1024" height="1024" fill="url(#bg)"/>
-  <!-- lens ring with shutter gap (upper-left), centered in safe zone -->
-  <circle cx="472" cy="562" r="140" fill="none" stroke="#FFFFFF"
-          stroke-width="38" stroke-linecap="round"
-          stroke-dasharray="806 74" stroke-dashoffset="293"/>
-  <!-- AI badge, overlapping the ring's top-right like the brand mark -->
-  <rect x="540" y="322" width="196" height="152" rx="42" fill="url(#badge)"/>
-  <text x="638" y="432" font-family="DejaVu Sans" font-style="italic"
+  <rect width="1024" height="1024" fill="#FAFCFB"/>
+  <!-- camera body disc, centered -->
+  <circle cx="480" cy="575" r="215" fill="#262A29"/>
+  <!-- thin swirl arc over the top-left of the lens -->
+  <path d="M 372 511 A 132 132 0 0 1 512 458" fill="none" stroke="#FFFFFF"
+        stroke-width="13" stroke-linecap="round"/>
+  <!-- main lens ring -->
+  <circle cx="495" cy="590" r="100" fill="none" stroke="#FFFFFF"
+          stroke-width="30"/>
+  <!-- AI badge, top-right -->
+  <rect x="555" y="295" width="175" height="140" rx="38" fill="#7FBE88"/>
+  <text x="642" y="400" font-family="DejaVu Serif" font-style="italic"
         font-weight="bold" font-size="86" fill="#FFFFFF"
         text-anchor="middle">AI</text>
+  <line x1="585" y1="378" x2="700" y2="378" stroke="#FFFFFF" stroke-width="7"/>
 </svg>
