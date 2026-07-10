@@ -384,14 +384,47 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 }
 
-class _PhotoViewer extends StatelessWidget {
+class _PhotoViewer extends StatefulWidget {
   const _PhotoViewer({required this.image, required this.heroTag});
 
   final ImageProvider image;
   final String heroTag;
 
   @override
+  State<_PhotoViewer> createState() => _PhotoViewerState();
+}
+
+class _PhotoViewerState extends State<_PhotoViewer> {
+  double? _aspectRatio;
+  late final ImageStreamListener _listener;
+  ImageStream? _stream;
+
+  @override
+  void initState() {
+    super.initState();
+    _listener = ImageStreamListener((info, _) {
+      if (mounted) {
+        setState(() => _aspectRatio = info.image.width / info.image.height);
+      }
+    });
+    _stream = widget.image.resolve(const ImageConfiguration())
+      ..addListener(_listener);
+  }
+
+  @override
+  void dispose() {
+    _stream?.removeListener(_listener);
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+    // Landscape-ish shots (wide, short) fill the screen width under plain
+    // BoxFit.contain since width is the tighter constraint — capping it
+    // narrower here is what actually shrinks them. Portrait/square shots
+    // already fit fine, so leave their width uncapped.
+    final isWide = (_aspectRatio ?? 1) > 1.15;
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
@@ -400,8 +433,16 @@ class _PhotoViewer extends StatelessWidget {
             onTap: () => Navigator.of(context).pop(),
             child: Center(
               child: Hero(
-                tag: heroTag,
-                child: InteractiveViewer(child: Image(image: image)),
+                tag: widget.heroTag,
+                child: InteractiveViewer(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: isWide ? size.width * 0.75 : size.width,
+                      maxHeight: size.height * 0.85,
+                    ),
+                    child: Image(image: widget.image, fit: BoxFit.contain),
+                  ),
+                ),
               ),
             ),
           ),
