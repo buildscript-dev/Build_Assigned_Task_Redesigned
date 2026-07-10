@@ -1016,15 +1016,23 @@ class _CommunityIdentity extends StatelessWidget {
         Container(
           width: 44,
           height: 44,
-          decoration: const BoxDecoration(
-            gradient: AppColors.heroGradient,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                AppColors.brandGreen.withValues(alpha: .18),
+                AppColors.gold.withValues(alpha: .18),
+              ],
+            ),
             shape: BoxShape.circle,
+            border: Border.all(
+              color: AppColors.brandGreen.withValues(alpha: .25),
+            ),
           ),
           alignment: Alignment.center,
           child: Text(
             name[0],
             style: const TextStyle(
-              color: Colors.white,
+              color: AppColors.brandGreen,
               fontWeight: FontWeight.w800,
               fontSize: 16,
             ),

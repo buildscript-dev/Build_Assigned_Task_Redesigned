@@ -39,15 +39,23 @@ class ChatListScreen extends StatelessWidget {
                     Container(
                       width: 46,
                       height: 46,
-                      decoration: const BoxDecoration(
-                        gradient: AppColors.heroGradient,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            AppColors.brandGreen.withValues(alpha: .18),
+                            AppColors.gold.withValues(alpha: .18),
+                          ],
+                        ),
                         shape: BoxShape.circle,
+                        border: Border.all(
+                          color: AppColors.brandGreen.withValues(alpha: .25),
+                        ),
                       ),
                       alignment: Alignment.center,
                       child: Text(
                         t.name[0],
                         style: const TextStyle(
-                          color: Colors.white,
+                          color: AppColors.brandGreen,
                           fontWeight: FontWeight.w800,
                           fontSize: 17,
                         ),

@@ -115,10 +115,23 @@ class _SearchScreenState extends State<SearchScreen> {
                               Container(
                                 width: 42,
                                 height: 42,
+                                alignment: Alignment.center,
                                 decoration: BoxDecoration(
-                                  gradient: AppColors.heroGradient,
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      AppColors.brandGreen.withValues(
+                                        alpha: .18,
+                                      ),
+                                      AppColors.gold.withValues(alpha: .18),
+                                    ],
+                                  ),
                                   borderRadius: BorderRadius.circular(
                                     Corners.sm,
+                                  ),
+                                  border: Border.all(
+                                    color: AppColors.brandGreen.withValues(
+                                      alpha: .25,
+                                    ),
                                   ),
                                 ),
                                 child: Icon(
@@ -127,7 +140,7 @@ class _SearchScreenState extends State<SearchScreen> {
                                     'Post' => Icons.image_rounded,
                                     _ => Icons.person_rounded,
                                   },
-                                  color: Colors.white,
+                                  color: AppColors.brandGreen,
                                   size: 20,
                                 ),
                               ),

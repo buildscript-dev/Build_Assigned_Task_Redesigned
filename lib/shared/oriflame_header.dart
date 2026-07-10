@@ -52,13 +52,22 @@ class OriflameHeader extends StatelessWidget {
                 child: Container(
                   width: 52,
                   height: 52,
-                  decoration: const BoxDecoration(
-                    gradient: AppColors.heroGradient,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        AppColors.brandGreen.withValues(alpha: .18),
+                        AppColors.gold.withValues(alpha: .18),
+                      ],
+                    ),
                     shape: BoxShape.circle,
+                    border: Border.all(
+                      color: AppColors.brandGreen.withValues(alpha: .25),
+                    ),
                   ),
                   child: const Icon(
                     Icons.photo_camera_outlined,
-                    color: Colors.white,
+                    color: AppColors.brandGreen,
                     size: 26,
                   ),
                 ),
