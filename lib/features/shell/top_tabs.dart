@@ -147,10 +147,14 @@ class _CommunitiesScreenState extends State<CommunitiesScreen>
   // it chases it over a short animation, so motion stays visible even when
   // the page is scrolled fast or flung (a direct 1:1 lerp would complete
   // within a single fling and look like an instant cut).
+  // Not listened-to with setState — only the AnimatedBuilder wrapping the
+  // stack (see build()) rebuilds per tick, so the rest of this screen
+  // (earn carousel, pulse card, sparkline) doesn't repaint on every frame
+  // of the reveal animation. That full-screen rebuild was the scroll jank.
   late final _revealAnim = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 180),
-  )..addListener(() => setState(() {}));
+  );
   int _hapticBucket = -1;
 
   @override
@@ -437,14 +441,17 @@ class _CommunitiesScreenState extends State<CommunitiesScreen>
           const SizedBox(height: 12),
           KeyedSubtree(
             key: _stackKey,
-            child: _CommunityStack(
-              items: _communities,
-              reveal: _revealAnim.value,
-              onToggleJoin: (i) => setState(
-                () => _communities[i] = (
-                  _communities[i].$1,
-                  _communities[i].$2,
-                  !_communities[i].$3,
+            child: AnimatedBuilder(
+              animation: _revealAnim,
+              builder: (context, _) => _CommunityStack(
+                items: _communities,
+                reveal: _revealAnim.value,
+                onToggleJoin: (i) => setState(
+                  () => _communities[i] = (
+                    _communities[i].$1,
+                    _communities[i].$2,
+                    !_communities[i].$3,
+                  ),
                 ),
               ),
             ),
@@ -939,10 +946,27 @@ class _CommunityStack extends StatelessWidget {
         1.0,
       );
 
+      // At most the front card plus two rows ever show as a peek at once
+      // (matching the original "front + 2 peeking" look) — row 1 and row 2
+      // sit at a static peek height until their own turn; any row further
+      // back stays fully hidden and only fades in to a peek DURING the
+      // row directly above it's own active window, so there's never more
+      // than one row "appearing" behind the one currently rising.
+      double restHeight;
+      if (i <= 2) {
+        restHeight = _peekHeight;
+      } else {
+        final appearStart = (i - 2) / n;
+        final appearEnd = (i - 1) / n;
+        final appearT = ((reveal - appearStart) / (appearEnd - appearStart))
+            .clamp(0.0, 1.0);
+        restHeight = lerpDouble(0, _peekHeight, appearT)!;
+      }
+
       final peekTop = prevBottom - 8;
       final settledTop = prevBottom + _rowGap;
       final top = lerpDouble(peekTop, settledTop, t)!;
-      final height = lerpDouble(_peekHeight, _rowHeight, t)!;
+      final height = lerpDouble(restHeight, _rowHeight, t)!;
 
       rows.add(
         Positioned(
@@ -954,7 +978,7 @@ class _CommunityStack extends StatelessWidget {
             child: ClipRect(
               child: Align(
                 alignment: Alignment.topCenter,
-                heightFactor: (height / _rowHeight).clamp(0.001, 1.0),
+                heightFactor: (height / _rowHeight).clamp(0.0, 1.0),
                 child: _CommunityRow(
                   item: items[i],
                   onToggleJoin: () => onToggleJoin(i),
