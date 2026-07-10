@@ -212,14 +212,38 @@ class _CommunitiesScreenState extends State<CommunitiesScreen> {
             child: PageView.builder(
               controller: _earnController,
               itemCount: _earnCards.length,
-              onPageChanged: (i) => setState(() => _earnPage = i),
+              onPageChanged: (i) {
+                HapticFeedback.selectionClick();
+                setState(() => _earnPage = i);
+              },
               itemBuilder: (context, i) {
                 final (headline, big, earned, earnedLabel) = _earnCards[i];
-                return _EarnCard(
-                  headline: headline,
-                  big: big,
-                  earned: earned,
-                  earnedLabel: earnedLabel,
+                return AnimatedBuilder(
+                  animation: _earnController,
+                  builder: (context, child) {
+                    final hasPage =
+                        _earnController.hasClients &&
+                        _earnController.position.haveDimensions;
+                    var delta =
+                        (hasPage
+                            ? _earnController.page!
+                            : _earnPage.toDouble()) -
+                        i;
+                    delta = delta.clamp(-1.0, 1.0).abs();
+                    return Transform.scale(
+                      scale: 1 - (delta * 0.06),
+                      child: Opacity(opacity: 1 - (delta * 0.4), child: child),
+                    );
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                    child: _EarnCard(
+                      headline: headline,
+                      big: big,
+                      earned: earned,
+                      earnedLabel: earnedLabel,
+                    ),
+                  ),
                 );
               },
             ),
