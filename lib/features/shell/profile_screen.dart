@@ -35,26 +35,102 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _confirmDelete(File photo) async {
     HapticFeedback.mediumImpact();
-    final confirmed = await showDialog<bool>(
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final ink = dark ? Colors.white : AppColors.ink;
+    final confirmed = await showModalBottomSheet<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete photo?'),
-        content: const Text(
-          'This camera shot will be removed from your gallery.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text(
-              'Delete',
-              style: TextStyle(color: AppColors.brandGreen),
+      backgroundColor: dark ? AppColors.darkCard : Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (context) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 14, 20, 28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: AppColors.greyMuted,
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              ),
             ),
-          ),
-        ],
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.red.withValues(alpha: .12),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.delete_rounded,
+                color: Colors.redAccent,
+                size: 22,
+              ),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              'Delete this photo?',
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
+                color: ink,
+              ),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'This camera shot will be removed from your gallery. This '
+              'can\'t be undone.',
+              style: TextStyle(
+                fontSize: 13.5,
+                height: 1.4,
+                color: AppColors.greyText,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.of(context).pop(false),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(Corners.md),
+                      ),
+                      side: BorderSide(color: ink.withValues(alpha: .18)),
+                    ),
+                    child: Text(
+                      'Cancel',
+                      style: TextStyle(fontWeight: FontWeight.w700, color: ink),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: FilledButton(
+                    onPressed: () => Navigator.of(context).pop(true),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Colors.redAccent,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(Corners.md),
+                      ),
+                    ),
+                    child: const Text(
+                      'Delete',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
     if (confirmed == true) {
@@ -239,10 +315,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
             itemCount: tiles.length,
             itemBuilder: (context, i) {
               final (image, file) = tiles[i];
+              final heroTag = 'gallery_$i';
               return GestureDetector(
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => _PhotoViewer(image: image)),
-                ),
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  Navigator.of(context).push(
+                    PageRouteBuilder(
+                      transitionDuration: const Duration(milliseconds: 260),
+                      pageBuilder: (_, _, _) =>
+                          _PhotoViewer(image: image, heroTag: heroTag),
+                      transitionsBuilder: (_, anim, _, child) =>
+                          FadeTransition(opacity: anim, child: child),
+                    ),
+                  );
+                },
                 onLongPress: file == null ? null : () => _confirmDelete(file),
                 child: Stack(
                   children: [
@@ -259,7 +345,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(Corners.sm),
-                        child: Image(image: image, fit: BoxFit.cover),
+                        child: Hero(
+                          tag: heroTag,
+                          child: Image(image: image, fit: BoxFit.cover),
+                        ),
                       ),
                     ),
                     // Only camera shots show a delete affordance — the 3
@@ -296,19 +385,48 @@ class _ProfileScreenState extends State<ProfileScreen> {
 }
 
 class _PhotoViewer extends StatelessWidget {
-  const _PhotoViewer({required this.image});
+  const _PhotoViewer({required this.image, required this.heroTag});
 
   final ImageProvider image;
+  final String heroTag;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      body: GestureDetector(
-        onTap: () => Navigator.of(context).pop(),
-        child: Center(
-          child: InteractiveViewer(child: Image(image: image)),
-        ),
+      body: Stack(
+        children: [
+          GestureDetector(
+            onTap: () => Navigator.of(context).pop(),
+            child: Center(
+              child: Hero(
+                tag: heroTag,
+                child: InteractiveViewer(child: Image(image: image)),
+              ),
+            ),
+          ),
+          Positioned(
+            left: 12,
+            top: 12,
+            child: SafeArea(
+              child: GestureDetector(
+                onTap: () => Navigator.of(context).pop(),
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: const BoxDecoration(
+                    color: Colors.black45,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.close_rounded,
+                    color: Colors.white,
+                    size: 22,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
