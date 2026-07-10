@@ -52,10 +52,23 @@ class SmartPostScreen extends StatelessWidget {
                   left: 0,
                   right: 0,
                   bottom: 0,
-                  child: SafeArea(
-                    top: false,
-                    child: AppBottomNav(
-                      onTap: (i) => goTab(context, tabFeed, i),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: dark ? AppColors.darkSurface : Colors.white,
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.cardShadow.withValues(alpha: .25),
+                          blurRadius: 16,
+                          offset: const Offset(0, -4),
+                        ),
+                      ],
+                    ),
+                    child: SafeArea(
+                      top: false,
+                      child: AppBottomNav(
+                        color: dark ? Colors.white : AppColors.ink,
+                        onTap: (i) => goTab(context, tabFeed, i),
+                      ),
                     ),
                   ),
                 ),

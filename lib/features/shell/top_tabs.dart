@@ -390,74 +390,16 @@ class _CommunitiesScreenState extends State<CommunitiesScreen> {
           const SizedBox(height: 26),
           const KickerLabel('Join more communities'),
           const SizedBox(height: 12),
-          for (var i = 0; i < _communities.length; i++)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: Reveal(
-                index: i,
-                child: SoftCard(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 12,
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 44,
-                        height: 44,
-                        decoration: const BoxDecoration(
-                          gradient: AppColors.heroGradient,
-                          shape: BoxShape.circle,
-                        ),
-                        alignment: Alignment.center,
-                        child: Text(
-                          _communities[i].$1[0],
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w800,
-                            fontSize: 16,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              _communities[i].$1,
-                              style: TextStyle(
-                                fontWeight: FontWeight.w700,
-                                color: ink,
-                              ),
-                            ),
-                            Text(
-                              _communities[i].$2,
-                              style: const TextStyle(
-                                fontSize: 12.5,
-                                color: AppColors.greyText,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      AppButton(
-                        compact: true,
-                        filled: !_communities[i].$3,
-                        label: _communities[i].$3 ? 'Joined' : 'Join',
-                        onTap: () => setState(
-                          () => _communities[i] = (
-                            _communities[i].$1,
-                            _communities[i].$2,
-                            !_communities[i].$3,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+          _CommunityStack(
+            items: _communities,
+            onToggleJoin: (i) => setState(
+              () => _communities[i] = (
+                _communities[i].$1,
+                _communities[i].$2,
+                !_communities[i].$3,
               ),
             ),
+          ),
         ],
       ),
     );
@@ -470,9 +412,8 @@ class ShareWinScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ink = Theme.of(context).brightness == Brightness.dark
-        ? Colors.white
-        : AppColors.ink;
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final ink = dark ? Colors.white : AppColors.ink;
     const shared = 3, goal = 5;
     final leaderboard = [
       ('Priya S.', 7),
@@ -487,16 +428,28 @@ class ShareWinScreen extends StatelessWidget {
         children: [
           const SectionHeading('Share & Win 🏆'),
           const SizedBox(height: 18),
+          // Same soft gradient wash as the Communities earn cards — one
+          // shared "glass" look for every earn/reward surface in the app.
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              gradient: AppColors.heroGradient,
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  AppColors.brandGreen.withValues(alpha: dark ? .22 : .14),
+                  AppColors.gold.withValues(alpha: dark ? .16 : .10),
+                ],
+              ),
               borderRadius: BorderRadius.circular(Corners.lg),
-              boxShadow: [
+              border: Border.all(
+                color: AppColors.brandGreen.withValues(alpha: .14),
+              ),
+              boxShadow: const [
                 BoxShadow(
-                  color: AppColors.brandGreen.withValues(alpha: .35),
-                  blurRadius: 22,
-                  offset: const Offset(0, 8),
+                  color: AppColors.cardShadow,
+                  blurRadius: 18,
+                  offset: Offset(0, 8),
                 ),
               ],
             ),
@@ -509,17 +462,17 @@ class ShareWinScreen extends StatelessWidget {
                     fontSize: 11.5,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 0.8,
-                    color: Colors.white70,
+                    color: AppColors.brandGreen,
                   ),
                 ),
                 const SizedBox(height: 6),
-                const Text(
+                Text(
                   'Share $goal Smart Posts, win a Giordani Gold set',
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w800,
                     height: 1.25,
-                    color: Colors.white,
+                    color: ink,
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -528,14 +481,17 @@ class ShareWinScreen extends StatelessWidget {
                   child: LinearProgressIndicator(
                     value: shared / goal,
                     minHeight: 10,
-                    backgroundColor: Colors.white24,
+                    backgroundColor: AppColors.trackGrey,
                     valueColor: const AlwaysStoppedAnimation(AppColors.gold),
                   ),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   '$shared of $goal shared — ${goal - shared} to go!',
-                  style: const TextStyle(fontSize: 13, color: Colors.white70),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: AppColors.greyText,
+                  ),
                 ),
               ],
             ),
@@ -876,6 +832,280 @@ class _ChallengeTeaserCardState extends State<_ChallengeTeaserCard> {
                 color: AppColors.greyMuted,
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Collapsed = an Apple-notification-style peek stack (front card full,
+/// the next two peeking behind, offset/scaled/faded); tap to unfurl into
+/// the normal scrollable list, tap "Show less" to restack.
+class _CommunityStack extends StatefulWidget {
+  const _CommunityStack({required this.items, required this.onToggleJoin});
+
+  final List<(String, String, bool)> items;
+  final void Function(int index) onToggleJoin;
+
+  @override
+  State<_CommunityStack> createState() => _CommunityStackState();
+}
+
+class _CommunityStackState extends State<_CommunityStack> {
+  bool _expanded = false;
+
+  void _toggle() {
+    HapticFeedback.mediumImpact();
+    setState(() => _expanded = !_expanded);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ink = Theme.of(context).brightness == Brightness.dark
+        ? Colors.white
+        : AppColors.ink;
+    if (_expanded) {
+      return Column(
+        children: [
+          for (var i = 0; i < widget.items.length; i++)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Reveal(
+                index: i,
+                child: _CommunityRow(
+                  item: widget.items[i],
+                  onToggleJoin: () => widget.onToggleJoin(i),
+                ),
+              ),
+            ),
+          GestureDetector(
+            onTap: _toggle,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'Show less',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: ink.withValues(alpha: .6),
+                    ),
+                  ),
+                  Icon(
+                    Icons.expand_less_rounded,
+                    size: 18,
+                    color: ink.withValues(alpha: .6),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    final peek = widget.items.length < 3 ? widget.items.length : 3;
+    const frontHeight = 68.0;
+    const step = 12.0;
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final peekColor = dark ? AppColors.darkCard : AppColors.surfaceCard;
+    return SizedBox(
+      height: frontHeight + peek * step,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          // Peeking cards behind the front one — flat, shadowless slivers so
+          // they read as stacked edges instead of vanishing into the front
+          // card's own soft shadow. Tap a sliver to expand the stack.
+          for (var i = peek - 1; i >= 1; i--)
+            Positioned(
+              top: frontHeight - 10 + i * step,
+              left: i * 10.0,
+              right: i * 10.0,
+              child: GestureDetector(
+                onTap: _toggle,
+                child: Container(
+                  height: 22,
+                  decoration: BoxDecoration(
+                    color: peekColor.withValues(alpha: 1 - (i - 1) * 0.35),
+                    borderRadius: BorderRadius.circular(Corners.md),
+                    border: Border.all(color: ink.withValues(alpha: .06)),
+                  ),
+                ),
+              ),
+            ),
+          // Front card — fully interactive (its own Join button works).
+          Positioned(
+            left: 0,
+            right: 0,
+            top: 0,
+            child: _CommunityRow(
+              item: widget.items[0],
+              onToggleJoin: () => widget.onToggleJoin(0),
+            ),
+          ),
+          if (widget.items.length > 1)
+            Positioned(
+              right: 6,
+              bottom: -6,
+              child: IgnorePointer(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.brandGreen,
+                    borderRadius: BorderRadius.circular(10),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: AppColors.cardShadow,
+                        blurRadius: 6,
+                        offset: Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Text(
+                    '+${widget.items.length - 1}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CommunityRow extends StatelessWidget {
+  const _CommunityRow({required this.item, required this.onToggleJoin});
+
+  final (String, String, bool) item;
+  final VoidCallback onToggleJoin;
+
+  @override
+  Widget build(BuildContext context) {
+    final ink = Theme.of(context).brightness == Brightness.dark
+        ? Colors.white
+        : AppColors.ink;
+    final (name, members, joined) = item;
+    return SoftCard(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  AppColors.brandGreen.withValues(alpha: .18),
+                  AppColors.gold.withValues(alpha: .18),
+                ],
+              ),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: AppColors.brandGreen.withValues(alpha: .25),
+              ),
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              name[0],
+              style: const TextStyle(
+                color: AppColors.brandGreen,
+                fontWeight: FontWeight.w800,
+                fontSize: 16,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  style: TextStyle(fontWeight: FontWeight.w700, color: ink),
+                ),
+                Text(
+                  members,
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    color: AppColors.greyText,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          _JoinPill(joined: joined, onTap: onToggleJoin),
+        ],
+      ),
+    );
+  }
+}
+
+class _JoinPill extends StatefulWidget {
+  const _JoinPill({required this.joined, required this.onTap});
+
+  final bool joined;
+  final VoidCallback onTap;
+
+  @override
+  State<_JoinPill> createState() => _JoinPillState();
+}
+
+class _JoinPillState extends State<_JoinPill> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapCancel: () => setState(() => _pressed = false),
+      onTapUp: (_) => setState(() => _pressed = false),
+      onTap: () {
+        HapticFeedback.selectionClick();
+        widget.onTap();
+      },
+      child: AnimatedScale(
+        scale: _pressed ? 0.92 : 1.0,
+        duration: Motion.fast,
+        curve: Motion.spring,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            gradient: widget.joined
+                ? null
+                : LinearGradient(
+                    colors: [
+                      AppColors.brandGreen.withValues(alpha: .16),
+                      AppColors.gold.withValues(alpha: .16),
+                    ],
+                  ),
+            color: widget.joined
+                ? (dark ? AppColors.darkSurface : AppColors.trackGrey)
+                : null,
+            border: widget.joined
+                ? null
+                : Border.all(color: AppColors.brandGreen.withValues(alpha: .3)),
+            borderRadius: BorderRadius.circular(30),
+          ),
+          child: Text(
+            widget.joined ? 'Joined' : 'Join',
+            style: TextStyle(
+              color: widget.joined ? AppColors.greyText : AppColors.brandGreen,
+              fontWeight: FontWeight.w700,
+              fontSize: 13,
+            ),
           ),
         ),
       ),

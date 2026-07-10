@@ -5,17 +5,15 @@ import '../../app/theme.dart';
 import '../../data/mock_posts.dart';
 import '../../data/mock_shell.dart';
 import '../../data/models.dart';
-import '../../shared/frosted_panel.dart';
 import '../../shared/ui_kit.dart';
 import '../edit_caption/edit_caption_page.dart';
 import '../share/generating_link_dialog.dart';
 import '../share/share_launcher.dart';
 import 'post_detail_sheet.dart';
-import 'widgets/post_overlays.dart' show ProductChip;
 
-/// Experimental alternate post-card style, requested as a side-by-side
-/// trial — a standalone screen that reuses existing sheets/data but never
-/// touches SmartPostScreen or its widgets, so the shipped feed is untouched.
+/// Profile-card post style, now also the live Smart Post feed's card
+/// design. This screen (reachable from Profile) is a standalone list for
+/// trying the style; SmartPostScreen renders the same ExperimentPostCard.
 class PostCardExperimentScreen extends StatelessWidget {
   const PostCardExperimentScreen({super.key});
 
@@ -31,8 +29,6 @@ class PostCardExperimentScreen extends StatelessWidget {
         surfaceTintColor: Colors.transparent,
         elevation: 0,
       ),
-      // Small-card list scrolls normally; each card can open a separate
-      // full-size page that scrolls on its own (see _ExpandedPostView).
       body: ListView.builder(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
         itemCount: mockPosts.length,
@@ -68,33 +64,28 @@ Future<void> _editCaption(
   }
 }
 
-/// Drag-to-reposition editor for "which area of the photo should show" in
-/// the card's rounded-square frame. Saves a per-post Alignment, session-local.
-Future<void> _editImageFocus(
-  BuildContext context,
-  SmartPost post,
-  int index,
-  VoidCallback onSaved,
-) {
-  var focus = imageFocus[index] ?? Alignment.center;
-  return showModalBottomSheet(
+/// Focused share sheet — just the platform list, no caption/music/product
+/// clutter. This is what both the small and full-size card's Share action
+/// open now (Post Details is reachable separately via the Edit menu).
+void _showShareSheet(BuildContext context, int index) {
+  HapticFeedback.selectionClick();
+  final dark = Theme.of(context).brightness == Brightness.dark;
+  final ink = dark ? Colors.white : AppColors.ink;
+  showModalBottomSheet(
     context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.transparent,
-    builder: (sheetContext) {
-      final dark = Theme.of(sheetContext).brightness == Brightness.dark;
-      final ink = dark ? Colors.white : AppColors.ink;
-      return StatefulBuilder(
-        builder: (context, setSheetState) => Container(
-          padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
-          decoration: BoxDecoration(
-            color: dark ? AppColors.darkCard : Colors.white,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
+    backgroundColor: dark ? AppColors.darkCard : Colors.white,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+    ),
+    builder: (sheetContext) => SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
                 width: 40,
                 height: 5,
                 decoration: BoxDecoration(
@@ -102,54 +93,211 @@ Future<void> _editImageFocus(
                   borderRadius: BorderRadius.circular(3),
                 ),
               ),
-              const SizedBox(height: 16),
-              Text(
-                'Choose visible area',
-                style: TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w800,
-                  color: ink,
-                ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Share to',
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
+                color: ink,
               ),
-              const SizedBox(height: 4),
-              const Text(
-                'Drag the photo to reposition it inside the frame',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 12.5, color: AppColors.greyText),
-              ),
-              const SizedBox(height: 16),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(Corners.lg),
-                child: GestureDetector(
-                  onPanUpdate: (details) => setSheetState(() {
-                    focus = Alignment(
-                      (focus.x - details.delta.dx / 130).clamp(-1.0, 1.0),
-                      (focus.y - details.delta.dy / 130).clamp(-1.0, 1.0),
-                    );
-                  }),
+            ),
+            const SizedBox(height: 18),
+            Wrap(
+              spacing: 22,
+              runSpacing: 18,
+              children: [
+                for (final p in sharePlatforms)
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.of(sheetContext).pop();
+                      _share(context, p, index);
+                    },
+                    child: SizedBox(
+                      width: 64,
+                      child: Column(
+                        children: [
+                          Image.asset(
+                            p.iconAsset,
+                            width: 46,
+                            height: 46,
+                            fit: BoxFit.contain,
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            p.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(fontSize: 11, color: ink),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+/// Drag-to-reposition + pinch-to-zoom editor for "which part of the photo
+/// should show" — live-previews the result at both the small-card and
+/// full-size-card aspect ratios so there's no guessing before Save.
+Future<void> _editImageFocus(
+  BuildContext context,
+  SmartPost post,
+  int index,
+  VoidCallback onSaved,
+) {
+  var focus = imageFocus[index] ?? Alignment.center;
+  var zoom = imageZoom[index] ?? 1.0;
+  var baseZoom = zoom;
+  return showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    // The crop frame owns drag/pinch itself — a draggable sheet would
+    // otherwise compete with (and sometimes steal) that gesture.
+    enableDrag: false,
+    backgroundColor: Colors.transparent,
+    builder: (sheetContext) {
+      final dark = Theme.of(sheetContext).brightness == Brightness.dark;
+      final ink = dark ? Colors.white : AppColors.ink;
+      return StatefulBuilder(
+        builder: (context, setSheetState) {
+          Widget preview(double aspect, double width, String label) {
+            return Column(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(Corners.sm),
                   child: SizedBox(
-                    width: 260,
-                    height: 260,
-                    child: Image.asset(
-                      post.imageAsset,
-                      fit: BoxFit.cover,
-                      alignment: focus,
+                    width: width,
+                    height: width / aspect,
+                    child: Transform.scale(
+                      scale: zoom,
+                      child: Image.asset(
+                        post.imageAsset,
+                        fit: BoxFit.cover,
+                        alignment: focus,
+                      ),
                     ),
                   ),
                 ),
+                const SizedBox(height: 6),
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: AppColors.greyText,
+                  ),
+                ),
+              ],
+            );
+          }
+
+          return Container(
+            padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
+            decoration: BoxDecoration(
+              color: dark ? AppColors.darkCard : Colors.white,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(28),
               ),
-              const SizedBox(height: 20),
-              AppButton(
-                label: 'Save',
-                onTap: () {
-                  imageFocus[index] = focus;
-                  onSaved();
-                  Navigator.of(context).pop();
-                },
-              ),
-            ],
-          ),
-        ),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 40,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: AppColors.greyMuted,
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Crop & position',
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                    color: ink,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Drag to reposition, pinch to zoom',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 12.5, color: AppColors.greyText),
+                ),
+                const SizedBox(height: 16),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(Corners.lg),
+                  child: GestureDetector(
+                    onScaleStart: (_) => baseZoom = zoom,
+                    onScaleUpdate: (details) => setSheetState(() {
+                      zoom = (baseZoom * details.scale).clamp(1.0, 3.0);
+                      focus = Alignment(
+                        (focus.x - details.focalPointDelta.dx / 130).clamp(
+                          -1.0,
+                          1.0,
+                        ),
+                        (focus.y - details.focalPointDelta.dy / 130).clamp(
+                          -1.0,
+                          1.0,
+                        ),
+                      );
+                    }),
+                    child: SizedBox(
+                      width: 260,
+                      height: 260,
+                      child: Transform.scale(
+                        scale: zoom,
+                        child: Image.asset(
+                          post.imageAsset,
+                          fit: BoxFit.cover,
+                          alignment: focus,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Text(
+                  'Preview',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                    color: ink,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    preview(0.82, 74, 'Small card'),
+                    const SizedBox(width: 24),
+                    preview(1.05, 100, 'Full size'),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                AppButton(
+                  label: 'Save',
+                  onTap: () {
+                    imageFocus[index] = focus;
+                    imageZoom[index] = zoom;
+                    onSaved();
+                    Navigator.of(context).pop();
+                  },
+                ),
+              ],
+            ),
+          );
+        },
       );
     },
   );
@@ -201,7 +349,7 @@ void _showEditMenu(
               color: AppColors.brandGreen,
             ),
             title: Text('Edit image area', style: TextStyle(color: ink)),
-            subtitle: const Text('Choose what part of the photo shows'),
+            subtitle: const Text('Crop, zoom, and preview both card sizes'),
             onTap: () {
               Navigator.of(sheetContext).pop();
               _editImageFocus(context, post, index, onChanged);
@@ -229,6 +377,337 @@ void _showEditMenu(
       ),
     ),
   );
+}
+
+void _openExpanded(BuildContext context, int index) {
+  HapticFeedback.lightImpact();
+  Navigator.of(context).push(
+    PageRouteBuilder(
+      transitionDuration: Motion.slow,
+      reverseTransitionDuration: Motion.slow,
+      pageBuilder: (_, _, _) => _ExpandedPostView(initialIndex: index),
+      transitionsBuilder: (_, anim, _, child) => SlideTransition(
+        position: Tween(
+          begin: const Offset(1, 0),
+          end: Offset.zero,
+        ).animate(CurvedAnimation(parent: anim, curve: Motion.smooth)),
+        child: child,
+      ),
+    ),
+  );
+}
+
+/// Rounded-corner photo with the ad chip floating above the caption area —
+/// shared by both the small card and the full-size page so a crop/zoom
+/// edit looks identical in both places.
+class _PostImage extends StatelessWidget {
+  const _PostImage({
+    required this.post,
+    required this.index,
+    required this.aspectRatio,
+    required this.showAd,
+  });
+
+  final SmartPost post;
+  final int index;
+  final double aspectRatio;
+  final bool showAd;
+
+  @override
+  Widget build(BuildContext context) {
+    final focus = imageFocus[index] ?? Alignment.center;
+    final zoom = imageZoom[index] ?? 1.0;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(Corners.lg),
+      child: Stack(
+        fit: StackFit.passthrough,
+        children: [
+          AspectRatio(
+            aspectRatio: aspectRatio,
+            child: Transform.scale(
+              scale: zoom,
+              child: Image.asset(
+                post.imageAsset,
+                fit: BoxFit.cover,
+                alignment: focus,
+              ),
+            ),
+          ),
+          if (post.product != null)
+            Positioned(
+              left: 14,
+              bottom: 14,
+              child: AnimatedSlide(
+                offset: showAd ? Offset.zero : const Offset(0, 0.5),
+                duration: const Duration(milliseconds: 400),
+                curve: Curves.easeOut,
+                child: AnimatedOpacity(
+                  opacity: showAd ? 1 : 0,
+                  duration: const Duration(milliseconds: 400),
+                  child: _AdChip(
+                    product: post.product!,
+                    mood: post.moodA,
+                    onTap: () => showPostDetailSheet(
+                      context,
+                      post: post,
+                      index: index,
+                      onEditCaption: () => _editCaption(context, index, () {}),
+                      onShare: (p) => _share(context, p, index),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Product thumbnail + price ad reveal — replaces a plain "30% off" text
+/// chip with the actual product image and price, per feedback.
+class _AdChip extends StatefulWidget {
+  const _AdChip({
+    required this.product,
+    required this.mood,
+    required this.onTap,
+  });
+
+  final Product product;
+  final Color mood;
+  final VoidCallback onTap;
+
+  @override
+  State<_AdChip> createState() => _AdChipState();
+}
+
+class _AdChipState extends State<_AdChip> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapCancel: () => setState(() => _pressed = false),
+      onTapUp: (_) => setState(() => _pressed = false),
+      onTap: () {
+        HapticFeedback.selectionClick();
+        widget.onTap();
+      },
+      child: AnimatedScale(
+        scale: _pressed ? 0.94 : 1.0,
+        duration: Motion.fast,
+        curve: Motion.spring,
+        child: Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(colors: [widget.mood, AppColors.gold]),
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: widget.mood.withValues(alpha: .5),
+                blurRadius: 12,
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: Container(
+                  color: Colors.white,
+                  width: 34,
+                  height: 34,
+                  child: Image.asset(
+                    widget.product.thumbAsset,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Padding(
+                padding: const EdgeInsets.only(right: 4),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      widget.product.price,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 13,
+                      ),
+                    ),
+                    Text(
+                      widget.product.discount,
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Name/caption/track + the plain (un-boxed) Ads/Share/Edit row — shared by
+/// the small card and the full-size page so both read as the same design.
+class _PostInfoBody extends StatelessWidget {
+  const _PostInfoBody({
+    required this.post,
+    required this.index,
+    required this.caption,
+    required this.captionMaxLines,
+    required this.showAd,
+    required this.onToggleAd,
+    required this.onEdit,
+  });
+
+  final SmartPost post;
+  final int index;
+  final String caption;
+  final int? captionMaxLines;
+  final bool showAd;
+  final VoidCallback onToggleAd;
+  final VoidCallback onEdit;
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final ink = dark ? Colors.white : AppColors.ink;
+    const subtle = AppColors.greyText;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          children: [
+            const CircleAvatar(
+              radius: 18,
+              backgroundImage: AssetImage('assets/images/avatar.png'),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        consultantName,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: ink,
+                        ),
+                      ),
+                      const SizedBox(width: 5),
+                      const Icon(
+                        Icons.verified_rounded,
+                        color: AppColors.brandGreen,
+                        size: 16,
+                      ),
+                    ],
+                  ),
+                  Text(
+                    'High-converting',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: subtle,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Text(
+          caption,
+          maxLines: captionMaxLines,
+          overflow: captionMaxLines == null ? null : TextOverflow.ellipsis,
+          style: TextStyle(fontSize: 13.5, height: 1.35, color: ink),
+        ),
+        const SizedBox(height: 6),
+        Row(
+          children: [
+            const Icon(
+              Icons.music_note_rounded,
+              color: AppColors.gold,
+              size: 15,
+            ),
+            const SizedBox(width: 5),
+            Expanded(
+              child: Text(
+                '${post.trackTitle} · ${post.trackArtist}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: subtle,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            GestureDetector(
+              onTap: onToggleAd,
+              child: Row(
+                children: [
+                  Icon(
+                    showAd
+                        ? Icons.local_offer_rounded
+                        : Icons.local_offer_outlined,
+                    size: 17,
+                    color: ink.withValues(alpha: .7),
+                  ),
+                  const SizedBox(width: 5),
+                  Text(
+                    post.product?.discount ?? 'Ads',
+                    style: TextStyle(fontWeight: FontWeight.w700, color: ink),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 18),
+            GestureDetector(
+              onTap: () => _showShareSheet(context, index),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.share_rounded,
+                    size: 17,
+                    color: ink.withValues(alpha: .7),
+                  ),
+                  const SizedBox(width: 5),
+                  Text(
+                    'Share',
+                    style: TextStyle(fontWeight: FontWeight.w700, color: ink),
+                  ),
+                ],
+              ),
+            ),
+            const Spacer(),
+            _EditPillButton(onTap: onEdit),
+          ],
+        ),
+      ],
+    );
+  }
 }
 
 class ExperimentPostCard extends StatefulWidget {
@@ -270,11 +749,8 @@ class _ExperimentPostCardState extends State<ExperimentPostCard> {
   @override
   Widget build(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final ink = dark ? Colors.white : AppColors.ink;
     final post = widget.post;
-    final focus = imageFocus[widget.index] ?? Alignment.center;
     final caption = editedCaptions[widget.index] ?? post.caption;
-    final tag = 'exp-post-image-${widget.index}';
 
     return Container(
       padding: const EdgeInsets.all(10),
@@ -300,204 +776,23 @@ class _ExperimentPostCardState extends State<ExperimentPostCard> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           GestureDetector(
-            onTap: () {
-              HapticFeedback.lightImpact();
-              Navigator.of(context).push(
-                PageRouteBuilder(
-                  transitionDuration: Motion.slow,
-                  reverseTransitionDuration: Motion.slow,
-                  pageBuilder: (_, _, _) => _ExpandedPostView(
-                    post: post,
-                    index: widget.index,
-                    heroTag: tag,
-                    onChanged: _refresh,
-                  ),
-                  transitionsBuilder: (_, anim, _, child) => SlideTransition(
-                    position: Tween(begin: const Offset(1, 0), end: Offset.zero)
-                        .animate(
-                          CurvedAnimation(parent: anim, curve: Motion.smooth),
-                        ),
-                    child: child,
-                  ),
-                ),
-              );
-            },
-            child: Hero(
-              tag: tag,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(Corners.lg),
-                child: Stack(
-                  fit: StackFit.passthrough,
-                  children: [
-                    AspectRatio(
-                      aspectRatio: 0.82,
-                      child: Image.asset(
-                        post.imageAsset,
-                        fit: BoxFit.cover,
-                        alignment: focus,
-                      ),
-                    ),
-                    if (post.product != null)
-                      Positioned(
-                        left: 14,
-                        bottom: 14,
-                        child: AnimatedSlide(
-                          offset: _showAd ? Offset.zero : const Offset(0, 0.5),
-                          duration: const Duration(milliseconds: 400),
-                          curve: Curves.easeOut,
-                          child: AnimatedOpacity(
-                            opacity: _showAd ? 1 : 0,
-                            duration: const Duration(milliseconds: 400),
-                            child: ProductChip(
-                              discount: post.product!.discount,
-                              mood: post.moodA,
-                              onTap: () => showPostDetailSheet(
-                                context,
-                                post: post,
-                                index: widget.index,
-                                onEditCaption: () => _editCaption(
-                                  context,
-                                  widget.index,
-                                  _refresh,
-                                ),
-                                onShare: (p) =>
-                                    _share(context, p, widget.index),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
+            onTap: () => _openExpanded(context, widget.index),
+            child: _PostImage(
+              post: post,
+              index: widget.index,
+              aspectRatio: 0.82,
+              showAd: _showAd,
             ),
           ),
           const SizedBox(height: 14),
-          Row(
-            children: [
-              const CircleAvatar(
-                radius: 18,
-                backgroundImage: AssetImage('assets/images/avatar.png'),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Text(
-                          consultantName,
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800,
-                            color: ink,
-                          ),
-                        ),
-                        const SizedBox(width: 5),
-                        const Icon(
-                          Icons.verified_rounded,
-                          color: AppColors.brandGreen,
-                          size: 16,
-                        ),
-                      ],
-                    ),
-                    const Text(
-                      'High-converting',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: AppColors.greyText,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            caption,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontSize: 13.5, height: 1.35, color: ink),
-          ),
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              const Icon(
-                Icons.music_note_rounded,
-                color: AppColors.gold,
-                size: 15,
-              ),
-              const SizedBox(width: 5),
-              Expanded(
-                child: Text(
-                  '${post.trackTitle} · ${post.trackArtist}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.greyText,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              GestureDetector(
-                onTap: _toggleAd,
-                child: Row(
-                  children: [
-                    Icon(
-                      _showAd
-                          ? Icons.local_offer_rounded
-                          : Icons.local_offer_outlined,
-                      size: 17,
-                      color: ink.withValues(alpha: .7),
-                    ),
-                    const SizedBox(width: 5),
-                    Text(
-                      post.product?.discount ?? 'Ads',
-                      style: TextStyle(fontWeight: FontWeight.w700, color: ink),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 18),
-              GestureDetector(
-                onTap: () => showPostDetailSheet(
-                  context,
-                  post: post,
-                  index: widget.index,
-                  onEditCaption: () =>
-                      _editCaption(context, widget.index, _refresh),
-                  onShare: (p) => _share(context, p, widget.index),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.share_rounded,
-                      size: 17,
-                      color: ink.withValues(alpha: .7),
-                    ),
-                    const SizedBox(width: 5),
-                    Text(
-                      'Share',
-                      style: TextStyle(fontWeight: FontWeight.w700, color: ink),
-                    ),
-                  ],
-                ),
-              ),
-              const Spacer(),
-              _EditPillButton(
-                onTap: () =>
-                    _showEditMenu(context, post, widget.index, _refresh),
-              ),
-            ],
+          _PostInfoBody(
+            post: post,
+            index: widget.index,
+            caption: caption,
+            captionMaxLines: 2,
+            showAd: _showAd,
+            onToggleAd: _toggleAd,
+            onEdit: () => _showEditMenu(context, post, widget.index, _refresh),
           ),
         ],
       ),
@@ -553,193 +848,61 @@ class _EditPillButtonState extends State<_EditPillButton> {
   }
 }
 
-/// Full-size page a card's photo expands into — Hero-connected, its own
-/// scroll view (image + full detail scrolls as one long page), with a
-/// frosted blurred action bar pinned to the bottom.
+/// Swipeable full-size view across every post — reel-style paging with a
+/// haptic + scale/fade transition per page, instead of a static single-post
+/// screen. Each page keeps the small card's exact look, just bigger.
 class _ExpandedPostView extends StatefulWidget {
-  const _ExpandedPostView({
-    required this.post,
-    required this.index,
-    required this.heroTag,
-    required this.onChanged,
-  });
+  const _ExpandedPostView({required this.initialIndex});
 
-  final SmartPost post;
-  final int index;
-  final String heroTag;
-  final VoidCallback onChanged;
+  final int initialIndex;
 
   @override
   State<_ExpandedPostView> createState() => _ExpandedPostViewState();
 }
 
 class _ExpandedPostViewState extends State<_ExpandedPostView> {
-  bool _showAd = false;
+  late final _controller = PageController(initialPage: widget.initialIndex);
+  late int _page = widget.initialIndex;
 
   @override
-  void initState() {
-    super.initState();
-    if (widget.post.product != null) {
-      Future.delayed(
-        const Duration(seconds: 3),
-        () => mounted ? setState(() => _showAd = true) : null,
-      );
-    }
-  }
-
-  void _toggleAd() {
-    if (widget.post.product == null) return;
-    HapticFeedback.selectionClick();
-    setState(() => _showAd = !_showAd);
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final post = widget.post;
-    final index = widget.index;
-    final onChanged = widget.onChanged;
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final ink = dark ? Colors.white : AppColors.ink;
-    final focus = imageFocus[index] ?? Alignment.center;
-    final caption = editedCaptions[index] ?? post.caption;
     return Scaffold(
       backgroundColor: dark ? AppColors.darkBg : AppColors.surface,
       body: Stack(
         children: [
-          SingleChildScrollView(
-            padding: const EdgeInsets.only(bottom: 100),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Hero(
-                  tag: widget.heroTag,
-                  child: Stack(
-                    fit: StackFit.passthrough,
-                    children: [
-                      AspectRatio(
-                        aspectRatio: 0.95,
-                        child: Image.asset(
-                          post.imageAsset,
-                          fit: BoxFit.cover,
-                          alignment: focus,
-                        ),
-                      ),
-                      // Auto-appears after 3s (or via the bottom bar's Ads
-                      // toggle) — sits just above the name row below it.
-                      if (post.product != null)
-                        Positioned(
-                          left: 20,
-                          bottom: 16,
-                          child: AnimatedSlide(
-                            offset: _showAd
-                                ? Offset.zero
-                                : const Offset(0, 0.5),
-                            duration: const Duration(milliseconds: 400),
-                            curve: Curves.easeOut,
-                            child: AnimatedOpacity(
-                              opacity: _showAd ? 1 : 0,
-                              duration: const Duration(milliseconds: 400),
-                              child: ProductChip(
-                                discount: post.product!.discount,
-                                mood: post.moodA,
-                                onTap: () => showPostDetailSheet(
-                                  context,
-                                  post: post,
-                                  index: index,
-                                  onEditCaption: () =>
-                                      _editCaption(context, index, onChanged),
-                                  onShare: (p) => _share(context, p, index),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                    ],
+          PageView.builder(
+            controller: _controller,
+            itemCount: mockPosts.length,
+            onPageChanged: (i) {
+              HapticFeedback.selectionClick();
+              setState(() => _page = i);
+            },
+            itemBuilder: (context, i) => AnimatedBuilder(
+              animation: _controller,
+              builder: (context, child) {
+                final hasPage =
+                    _controller.hasClients &&
+                    _controller.position.haveDimensions;
+                final delta =
+                    ((hasPage ? _controller.page! : _page.toDouble()) - i)
+                        .clamp(-1.0, 1.0)
+                        .abs();
+                return Opacity(
+                  opacity: 1 - (delta * 0.35),
+                  child: Transform.scale(
+                    scale: 1 - (delta * 0.05),
+                    child: child,
                   ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          const CircleAvatar(
-                            radius: 20,
-                            backgroundImage: AssetImage(
-                              'assets/images/avatar.png',
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Text(
-                                      consultantName,
-                                      style: TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.w800,
-                                        color: ink,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 6),
-                                    const Icon(
-                                      Icons.verified_rounded,
-                                      color: AppColors.brandGreen,
-                                      size: 17,
-                                    ),
-                                  ],
-                                ),
-                                const Text(
-                                  'High-converting',
-                                  style: TextStyle(
-                                    fontSize: 12.5,
-                                    color: AppColors.greyText,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        caption,
-                        style: TextStyle(
-                          fontSize: 14.5,
-                          height: 1.45,
-                          color: ink,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.music_note_rounded,
-                            color: AppColors.gold,
-                            size: 17,
-                          ),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              '${post.trackTitle} · ${post.trackArtist}',
-                              style: const TextStyle(
-                                fontSize: 13.5,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.greyText,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+                );
+              },
+              child: _ExpandedPostPage(post: mockPosts[i], index: i),
             ),
           ),
           Positioned(
@@ -764,87 +927,97 @@ class _ExpandedPostViewState extends State<_ExpandedPostView> {
               ),
             ),
           ),
-          Positioned(
-            left: 16,
-            right: 16,
-            bottom: 20,
-            child: SafeArea(
-              top: false,
-              child: FrostedPanel(
-                radius: 24,
-                color: Colors.black.withValues(alpha: 0.35),
-                blur: 8,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 10,
-                ),
-                child: Row(
-                  children: [
-                    _BarAction(
-                      icon: _showAd
-                          ? Icons.local_offer_rounded
-                          : Icons.local_offer_outlined,
-                      label: post.product?.discount ?? 'Ads',
-                      onTap: _toggleAd,
-                    ),
-                    const Spacer(),
-                    _BarAction(
-                      icon: Icons.share_rounded,
-                      label: 'Share',
-                      onTap: () => showPostDetailSheet(
-                        context,
-                        post: post,
-                        index: index,
-                        onEditCaption: () =>
-                            _editCaption(context, index, onChanged),
-                        onShare: (p) => _share(context, p, index),
-                      ),
-                    ),
-                    const Spacer(),
-                    _BarAction(
-                      icon: Icons.edit_rounded,
-                      label: 'Edit',
-                      onTap: () =>
-                          _showEditMenu(context, post, index, onChanged),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
         ],
       ),
     );
   }
 }
 
-class _BarAction extends StatelessWidget {
-  const _BarAction({required this.icon, required this.label, this.onTap});
+class _ExpandedPostPage extends StatefulWidget {
+  const _ExpandedPostPage({required this.post, required this.index});
 
-  final IconData icon;
-  final String label;
-  final VoidCallback? onTap;
+  final SmartPost post;
+  final int index;
+
+  @override
+  State<_ExpandedPostPage> createState() => _ExpandedPostPageState();
+}
+
+class _ExpandedPostPageState extends State<_ExpandedPostPage> {
+  bool _showAd = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.post.product != null) {
+      Future.delayed(
+        const Duration(seconds: 3),
+        () => mounted ? setState(() => _showAd = true) : null,
+      );
+    }
+  }
+
+  void _refresh() => setState(() {});
+
+  void _toggleAd() {
+    if (widget.post.product == null) return;
+    HapticFeedback.selectionClick();
+    setState(() => _showAd = !_showAd);
+  }
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap == null
-          ? null
-          : () {
-              HapticFeedback.selectionClick();
-              onTap!();
-            },
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final post = widget.post;
+    final caption = editedCaptions[widget.index] ?? post.caption;
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(16, 70, 16, 32),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: Colors.white, size: 20),
-          const SizedBox(height: 3),
-          Text(
-            label,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
+          // Full-size, undiminished — the ad chip is a small overlay, not a
+          // caption panel eating into the photo.
+          _PostImage(
+            post: post,
+            index: widget.index,
+            aspectRatio: 1.05,
+            showAd: _showAd,
+          ),
+          const SizedBox(height: 14),
+          // Same soft brand gradient wash as the Communities earn cards —
+          // one shared "glass" look across the app instead of a flat panel.
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  AppColors.brandGreen.withValues(alpha: dark ? .22 : .14),
+                  AppColors.gold.withValues(alpha: dark ? .16 : .10),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(Corners.lg),
+              border: Border.all(
+                color: AppColors.brandGreen.withValues(alpha: .14),
+              ),
+              boxShadow: const [
+                BoxShadow(
+                  color: AppColors.cardShadow,
+                  blurRadius: 18,
+                  offset: Offset(0, 8),
+                ),
+              ],
+            ),
+            child: _PostInfoBody(
+              post: post,
+              index: widget.index,
+              caption: caption,
+              captionMaxLines: null,
+              showAd: _showAd,
+              onToggleAd: _toggleAd,
+              onEdit: () =>
+                  _showEditMenu(context, post, widget.index, _refresh),
             ),
           ),
         ],
