@@ -347,7 +347,7 @@ void _showProductSheet(BuildContext context, Product product) {
                 ),
             ],
             const SizedBox(height: 14),
-            AppButton(
+            _BuyNowButton(
               label: 'Buy now · ${product.price}',
               onTap: () {
                 Navigator.of(sheetContext).pop();
@@ -364,6 +364,63 @@ void _showProductSheet(BuildContext context, Product product) {
       ),
     ),
   );
+}
+
+/// Buy Now CTA — pale-wash style, distinct from the shared [AppButton]'s
+/// bold solid-gradient fill used elsewhere (Share, Join, Send, etc.).
+class _BuyNowButton extends StatefulWidget {
+  const _BuyNowButton({required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  State<_BuyNowButton> createState() => _BuyNowButtonState();
+}
+
+class _BuyNowButtonState extends State<_BuyNowButton> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapCancel: () => setState(() => _pressed = false),
+      onTapUp: (_) => setState(() => _pressed = false),
+      onTap: () {
+        HapticFeedback.mediumImpact();
+        widget.onTap();
+      },
+      child: AnimatedScale(
+        scale: _pressed ? 0.94 : 1.0,
+        duration: Motion.fast,
+        curve: Motion.spring,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                AppColors.brandGreen.withValues(alpha: .18),
+                AppColors.gold.withValues(alpha: .18),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(30),
+            border: Border.all(
+              color: AppColors.brandGreen.withValues(alpha: .25),
+            ),
+          ),
+          child: Text(
+            widget.label,
+            style: const TextStyle(
+              color: AppColors.brandGreen,
+              fontWeight: FontWeight.w700,
+              fontSize: 14.5,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 /// Drag-to-reposition + pinch-to-zoom editor, per card size: pick "Small

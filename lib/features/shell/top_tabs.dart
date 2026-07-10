@@ -869,9 +869,17 @@ class _ChallengeTeaserCardState extends State<_ChallengeTeaserCard> {
               Container(
                 width: 40,
                 height: 40,
-                decoration: const BoxDecoration(
-                  gradient: AppColors.heroGradient,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      AppColors.brandGreen.withValues(alpha: .18),
+                      AppColors.gold.withValues(alpha: .18),
+                    ],
+                  ),
                   shape: BoxShape.circle,
+                  border: Border.all(
+                    color: AppColors.brandGreen.withValues(alpha: .25),
+                  ),
                 ),
                 alignment: Alignment.center,
                 child: const Text('🏆', style: TextStyle(fontSize: 18)),
