@@ -5,26 +5,22 @@ import '../../../app/theme.dart';
 
 /// TikTok-style floating action rail — replaces the old full-width share
 /// row sitting on the photo. Each icon is its own tiny interaction: heart
-/// fills with a bounce, bookmark flips, share glows on press.
+/// fills with a bounce, share glows on press.
 class ActionRail extends StatelessWidget {
   const ActionRail({
     super.key,
     required this.mood,
     required this.liked,
-    required this.saved,
     required this.onLike,
     required this.onComment,
     required this.onShare,
-    required this.onSave,
   });
 
   final Color mood;
   final bool liked;
-  final bool saved;
   final VoidCallback onLike;
   final VoidCallback onComment;
   final VoidCallback onShare;
-  final VoidCallback onSave;
 
   @override
   Widget build(BuildContext context) {
@@ -52,14 +48,6 @@ class ActionRail extends StatelessWidget {
           color: Colors.white,
           onTap: onShare,
           haptic: HapticFeedback.mediumImpact,
-        ),
-        const SizedBox(height: 22),
-        _RailButton(
-          icon: saved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
-          color: saved ? AppColors.gold : Colors.white,
-          glow: saved,
-          onTap: onSave,
-          haptic: HapticFeedback.selectionClick,
         ),
       ],
     );

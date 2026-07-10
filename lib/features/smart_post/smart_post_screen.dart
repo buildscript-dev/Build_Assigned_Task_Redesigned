@@ -167,7 +167,6 @@ class _PostMedia extends StatefulWidget {
 class _PostMediaState extends State<_PostMedia> with TickerProviderStateMixin {
   bool _showChip = false;
   bool get _liked => likedPosts.contains(widget.index);
-  bool get _saved => savedPosts.contains(widget.index);
 
   late final AnimationController _heartController = AnimationController(
     vsync: this,
@@ -288,32 +287,15 @@ class _PostMediaState extends State<_PostMedia> with TickerProviderStateMixin {
             child: ActionRail(
               mood: mood,
               liked: _liked,
-              saved: _saved,
               onLike: _like,
               onComment: () => openAssistant(context),
               onShare: widget.onOpenDetails,
-              onSave: () {
-                setState(() {
-                  if (_saved) {
-                    savedPosts.remove(widget.index);
-                  } else {
-                    savedPosts.add(widget.index);
-                  }
-                });
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      _saved ? 'Saved to your Library' : 'Removed from Library',
-                    ),
-                  ),
-                );
-              },
             ),
           ),
           // Only a slim strip + tiny product chip touch the photo now.
           Positioned(
             left: 16,
-            right: 100,
+            right: 16,
             bottom: 92,
             child: Column(
               mainAxisSize: MainAxisSize.min,

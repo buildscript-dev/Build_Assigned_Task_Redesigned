@@ -207,6 +207,44 @@ class SectionHeading extends StatelessWidget {
   }
 }
 
+/// Staggered fade+rise entrance for list/grid items — wrap each item with
+/// its index so a screen's content settles in instead of popping in flat.
+class Reveal extends StatefulWidget {
+  const Reveal({super.key, required this.index, required this.child});
+
+  final int index;
+  final Widget child;
+
+  @override
+  State<Reveal> createState() => _RevealState();
+}
+
+class _RevealState extends State<Reveal> {
+  bool _visible = false;
+
+  @override
+  void initState() {
+    super.initState();
+    Future.delayed(Duration(milliseconds: 40 * widget.index), () {
+      if (mounted) setState(() => _visible = true);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedSlide(
+      offset: _visible ? Offset.zero : const Offset(0, 0.12),
+      duration: Motion.base,
+      curve: Motion.smooth,
+      child: AnimatedOpacity(
+        opacity: _visible ? 1 : 0,
+        duration: Motion.base,
+        child: widget.child,
+      ),
+    );
+  }
+}
+
 /// Small label used above grouped content ("TRENDING PRODUCTS", etc.)
 class KickerLabel extends StatelessWidget {
   const KickerLabel(this.text, {super.key});

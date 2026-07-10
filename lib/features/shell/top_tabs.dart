@@ -38,49 +38,52 @@ class LibraryScreen extends StatelessWidget {
             itemCount: mockPosts.length,
             itemBuilder: (context, i) {
               final p = mockPosts[i];
-              return SoftCard(
-                padding: const EdgeInsets.all(8),
-                onTap: () => Navigator.of(context).popUntil((r) => r.isFirst),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(Corners.sm),
-                        child: Image.asset(
-                          p.imageAsset,
-                          width: double.infinity,
-                          fit: BoxFit.cover,
+              return Reveal(
+                index: i,
+                child: SoftCard(
+                  padding: const EdgeInsets.all(8),
+                  onTap: () => Navigator.of(context).popUntil((r) => r.isFirst),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(Corners.sm),
+                          child: Image.asset(
+                            p.imageAsset,
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 2),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            p.caption,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: ink,
+                      const SizedBox(height: 8),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 2),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              p.caption,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: ink,
+                              ),
                             ),
-                          ),
-                          Text(
-                            '♫ ${p.trackTitle}',
-                            style: const TextStyle(
-                              fontSize: 11,
-                              color: AppColors.greyText,
+                            Text(
+                              '♫ ${p.trackTitle}',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: AppColors.greyText,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               );
             },
@@ -124,65 +127,68 @@ class _CommunitiesScreenState extends State<CommunitiesScreen> {
           for (var i = 0; i < _communities.length; i++)
             Padding(
               padding: const EdgeInsets.only(bottom: 10),
-              child: SoftCard(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 12,
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 44,
-                      height: 44,
-                      decoration: const BoxDecoration(
-                        gradient: AppColors.heroGradient,
-                        shape: BoxShape.circle,
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(
-                        _communities[i].$1[0],
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 16,
+              child: Reveal(
+                index: i,
+                child: SoftCard(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: const BoxDecoration(
+                          gradient: AppColors.heroGradient,
+                          shape: BoxShape.circle,
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          _communities[i].$1[0],
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 16,
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _communities[i].$1,
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                color: ink,
+                              ),
+                            ),
+                            Text(
+                              _communities[i].$2,
+                              style: const TextStyle(
+                                fontSize: 12.5,
+                                color: AppColors.greyText,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      AppButton(
+                        compact: true,
+                        filled: !_communities[i].$3,
+                        label: _communities[i].$3 ? 'Joined' : 'Join',
+                        onTap: () => setState(
+                          () => _communities[i] = (
                             _communities[i].$1,
-                            style: TextStyle(
-                              fontWeight: FontWeight.w700,
-                              color: ink,
-                            ),
-                          ),
-                          Text(
                             _communities[i].$2,
-                            style: const TextStyle(
-                              fontSize: 12.5,
-                              color: AppColors.greyText,
-                            ),
+                            !_communities[i].$3,
                           ),
-                        ],
-                      ),
-                    ),
-                    AppButton(
-                      compact: true,
-                      filled: !_communities[i].$3,
-                      label: _communities[i].$3 ? 'Joined' : 'Join',
-                      onTap: () => setState(
-                        () => _communities[i] = (
-                          _communities[i].$1,
-                          _communities[i].$2,
-                          !_communities[i].$3,
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -274,51 +280,54 @@ class ShareWinScreen extends StatelessWidget {
           for (var i = 0; i < leaderboard.length; i++)
             Padding(
               padding: const EdgeInsets.only(bottom: 10),
-              child: SoftCard(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 12,
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        gradient: i == 0 ? AppColors.goldGradient : null,
-                        color: i == 0 ? null : AppColors.trackGrey,
-                        shape: BoxShape.circle,
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(
-                        '${i + 1}',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w800,
-                          color: i == 0 ? Colors.white : AppColors.ink,
+              child: Reveal(
+                index: i,
+                child: SoftCard(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          gradient: i == 0 ? AppColors.goldGradient : null,
+                          color: i == 0 ? null : AppColors.trackGrey,
+                          shape: BoxShape.circle,
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          '${i + 1}',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            color: i == 0 ? Colors.white : AppColors.ink,
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        leaderboard[i].$1,
-                        style: TextStyle(
-                          color: ink,
-                          fontWeight: leaderboard[i].$1.contains('(you)')
-                              ? FontWeight.w800
-                              : FontWeight.w500,
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          leaderboard[i].$1,
+                          style: TextStyle(
+                            color: ink,
+                            fontWeight: leaderboard[i].$1.contains('(you)')
+                                ? FontWeight.w800
+                                : FontWeight.w500,
+                          ),
                         ),
                       ),
-                    ),
-                    Text(
-                      '${leaderboard[i].$2} shares',
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.greyText,
+                      Text(
+                        '${leaderboard[i].$2} shares',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.greyText,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),

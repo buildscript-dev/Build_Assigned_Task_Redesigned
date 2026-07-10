@@ -11,9 +11,8 @@ const referralLink = 'www.oriflame.com/giordani/amada3012';
 /// User-edited captions, keyed by post index (session-local, no backend).
 final editedCaptions = <int, String>{};
 
-/// Liked / saved state — session-local, no backend.
+/// Liked state — session-local, no backend.
 final likedPosts = <int>{};
-final savedPosts = <int>{};
 
 /// Full caption text for a post: the edit or the generated default.
 String captionTextFor(int index) =>

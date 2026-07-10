@@ -730,17 +730,17 @@ class _PostMiniBarState extends State<PostMiniBar> {
         scale: _pressed ? 0.98 : 1.0,
         duration: Motion.fast,
         child: FrostedPanel(
-          radius: 16,
+          radius: 18,
           // Match the lighter caption/music treatment elsewhere — the
           // photo should read clearly through this bar too.
           color: Colors.black.withValues(alpha: 0.12),
           blur: 1.5,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           child: Row(
             children: [
               Container(
-                width: 30,
-                height: 30,
+                width: 34,
+                height: 34,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: LinearGradient(
@@ -750,10 +750,10 @@ class _PostMiniBarState extends State<PostMiniBar> {
                 child: const Icon(
                   Icons.music_note_rounded,
                   color: Colors.white,
-                  size: 16,
+                  size: 18,
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -761,22 +761,24 @@ class _PostMiniBarState extends State<PostMiniBar> {
                   children: [
                     Text(
                       widget.caption,
-                      maxLines: 1,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         color: Colors.white,
-                        fontSize: 13,
+                        fontSize: 14,
                         fontWeight: FontWeight.w600,
+                        height: 1.25,
                         shadows: overlayTextShadows,
                       ),
                     ),
+                    const SizedBox(height: 3),
                     Text(
                       '♫ ${widget.trackTitle}  ·  tap for details',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         color: Colors.white70,
-                        fontSize: 11,
+                        fontSize: 12,
                         shadows: overlayTextShadows,
                       ),
                     ),
@@ -787,7 +789,7 @@ class _PostMiniBarState extends State<PostMiniBar> {
               const Icon(
                 Icons.keyboard_arrow_up_rounded,
                 color: Colors.white,
-                size: 20,
+                size: 22,
               ),
             ],
           ),
