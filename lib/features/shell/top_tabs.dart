@@ -909,42 +909,61 @@ class _CommunityStackState extends State<_CommunityStack> {
 
     final peek = widget.items.length < 3 ? widget.items.length : 3;
     const frontHeight = 68.0;
-    const step = 12.0;
+    const step = 16.0;
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final peekColor = dark ? AppColors.darkCard : AppColors.surfaceCard;
+    final peekColor = dark ? AppColors.darkCard : AppColors.cream;
     return SizedBox(
       height: frontHeight + peek * step,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          // Peeking cards behind the front one — flat, shadowless slivers so
-          // they read as stacked edges instead of vanishing into the front
-          // card's own soft shadow. Tap a sliver to expand the stack.
+          // Peeking cards behind the front one — flat, tinted, bordered
+          // slivers (no soft shadow of their own) so they read clearly as
+          // stacked cards instead of blending into the front card's blur.
           for (var i = peek - 1; i >= 1; i--)
             Positioned(
-              top: frontHeight - 10 + i * step,
-              left: i * 10.0,
-              right: i * 10.0,
+              top: frontHeight - 6 + i * step,
+              left: i * 12.0,
+              right: i * 12.0,
               child: GestureDetector(
                 onTap: _toggle,
+                behavior: HitTestBehavior.opaque,
                 child: Container(
-                  height: 22,
+                  height: 26,
                   decoration: BoxDecoration(
-                    color: peekColor.withValues(alpha: 1 - (i - 1) * 0.35),
+                    color: peekColor.withValues(alpha: 1 - (i - 1) * 0.3),
                     borderRadius: BorderRadius.circular(Corners.md),
-                    border: Border.all(color: ink.withValues(alpha: .06)),
+                    border: Border.all(
+                      color: AppColors.brandGreen.withValues(alpha: .18),
+                    ),
                   ),
                 ),
               ),
             ),
-          // Front card — fully interactive (its own Join button works).
+          // Front card — avatar/name area expands the stack; the Join pill
+          // is a sibling (not nested) so its own tap keeps working.
           Positioned(
             left: 0,
             right: 0,
             top: 0,
-            child: _CommunityRow(
-              item: widget.items[0],
-              onToggleJoin: () => widget.onToggleJoin(0),
+            child: SoftCard(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: _toggle,
+                      behavior: HitTestBehavior.opaque,
+                      child: _CommunityIdentity(item: widget.items[0]),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  _JoinPill(
+                    joined: widget.items[0].$3,
+                    onTap: () => widget.onToggleJoin(0),
+                  ),
+                ],
+              ),
             ),
           ),
           if (widget.items.length > 1)
@@ -968,19 +987,94 @@ class _CommunityStackState extends State<_CommunityStack> {
                       ),
                     ],
                   ),
-                  child: Text(
-                    '+${widget.items.length - 1}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w800,
-                    ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '+${widget.items.length - 1}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(width: 2),
+                      const Icon(
+                        Icons.expand_more_rounded,
+                        size: 13,
+                        color: Colors.white,
+                      ),
+                    ],
                   ),
                 ),
               ),
             ),
         ],
       ),
+    );
+  }
+}
+
+/// Avatar + name/members block, shared by the front-of-stack row and the
+/// expanded list rows (see [_CommunityRow]).
+class _CommunityIdentity extends StatelessWidget {
+  const _CommunityIdentity({required this.item});
+
+  final (String, String, bool) item;
+
+  @override
+  Widget build(BuildContext context) {
+    final ink = Theme.of(context).brightness == Brightness.dark
+        ? Colors.white
+        : AppColors.ink;
+    final (name, members, _) = item;
+    return Row(
+      children: [
+        Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                AppColors.brandGreen.withValues(alpha: .18),
+                AppColors.gold.withValues(alpha: .18),
+              ],
+            ),
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: AppColors.brandGreen.withValues(alpha: .25),
+            ),
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            name[0],
+            style: const TextStyle(
+              color: AppColors.brandGreen,
+              fontWeight: FontWeight.w800,
+              fontSize: 16,
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                name,
+                style: TextStyle(fontWeight: FontWeight.w700, color: ink),
+              ),
+              Text(
+                members,
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  color: AppColors.greyText,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
@@ -993,58 +1087,13 @@ class _CommunityRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ink = Theme.of(context).brightness == Brightness.dark
-        ? Colors.white
-        : AppColors.ink;
-    final (name, members, joined) = item;
+    final joined = item.$3;
     return SoftCard(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       child: Row(
         children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  AppColors.brandGreen.withValues(alpha: .18),
-                  AppColors.gold.withValues(alpha: .18),
-                ],
-              ),
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: AppColors.brandGreen.withValues(alpha: .25),
-              ),
-            ),
-            alignment: Alignment.center,
-            child: Text(
-              name[0],
-              style: const TextStyle(
-                color: AppColors.brandGreen,
-                fontWeight: FontWeight.w800,
-                fontSize: 16,
-              ),
-            ),
-          ),
+          Expanded(child: _CommunityIdentity(item: item)),
           const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name,
-                  style: TextStyle(fontWeight: FontWeight.w700, color: ink),
-                ),
-                Text(
-                  members,
-                  style: const TextStyle(
-                    fontSize: 12.5,
-                    color: AppColors.greyText,
-                  ),
-                ),
-              ],
-            ),
-          ),
           _JoinPill(joined: joined, onTap: onToggleJoin),
         ],
       ),
